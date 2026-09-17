@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Simulador TenisGain</title>
+<style>
+  :root{
+    --border:#e2ddd0;
+    --bg:#fdfbf6;
+    --card:#ffffff;
+    --text:#2c2a24;
+    --muted:#7a7669;
+    --accent:#d9895a;
+    --accent-text:#ffffff;
+    --win:#4c7a3f;
+    --win-bg:#eaf3de;
+    --lose:#a33232;
+    --lose-bg:#fbe7e5;
+    --line-bg:#f1efe6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --border:#3a352c; --bg:#1c1a16; --card:#242119; --text:#eae4d6; --muted:#a89f8c;
+      --win-bg:#1c2a17; --lose-bg:#2f1918; --line-bg:#2a271f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --border:#3a352c; --bg:#1c1a16; --card:#242119; --text:#eae4d6; --muted:#a89f8c;
+    --win-bg:#1c2a17; --lose-bg:#2f1918; --line-bg:#2a271f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--text);font-family:"Segoe UI",Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:18px;font-weight:500;margin:0 0 4px;}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 20px;}
+  .controls{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px;background:var(--card);border:0.5px solid var(--border);
+    border-radius:12px;padding:16px;margin-bottom:16px;
+  }
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .field input, .field select{
+    width:100%;padding:7px 8px;border:0.5px solid var(--border);border-radius:8px;
+    background:var(--bg);color:var(--text);font-size:14px;
+  }
+  .field.side-choice{grid-column:1 / -1;}
+  .radio-row{display:flex;gap:16px;font-size:13px;align-items:center;height:34px;}
+  .radio-row label{display:flex;align-items:center;gap:6px;color:var(--text);}
+  .stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px;margin-bottom:20px;
+  }
+  .stat{background:var(--line-bg);border-radius:8px;padding:12px;}
+  .stat .label{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .stat .value{font-size:22px;font-weight:500;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  th{background:var(--accent);color:var(--accent-text);padding:6px 8px;text-align:center;font-weight:600;}
+  th.left{text-align:left;}
+  td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);}
+  td.left{text-align:left;font-weight:600;}
+  tr.out td{color:var(--muted);opacity:0.55;}
+  tr.win td{background:var(--win-bg);}
+  tr.win td.res{color:var(--win);font-weight:600;}
+  tr.lose td{background:var(--lose-bg);}
+  tr.lose td.res{color:var(--lose);font-weight:600;}
+  .badge-line{
+    display:inline-block;padding:1px 8px;border-radius:10px;
+    background:var(--line-bg);font-size:12px;font-weight:600;
+  }
+  .table-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:12px;}
+  button{
+    padding:8px 16px;border-radius:8px;border:0.5px solid var(--border);
+    background:var(--accent);color:var(--accent-text);font-weight:600;cursor:pointer;
+    font-size:14px;
+  }
+  button:active{transform:scale(0.98);}
+  button.secondary{background:var(--card);color:var(--text);}
+  textarea{
+    width:100%;min-height:110px;padding:8px;border:0.5px solid var(--border);
+    border-radius:8px;background:var(--bg);color:var(--text);font-size:12px;
+    font-family:ui-monospace,Consolas,monospace;resize:vertical;
+  }
+  .import-card{
+    background:var(--card);border:0.5px solid var(--border);border-radius:12px;
+    padding:16px;margin-bottom:16px;
+  }
+  .import-card summary{cursor:pointer;font-size:14px;font-weight:500;}
+  .import-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;}
+  .import-row input[type=text]{
+    flex:1;min-width:160px;padding:7px 8px;border:0.5px solid var(--border);
+    border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;
+  }
+  .hint{font-size:11px;color:var(--muted);margin:6px 0;}
+  .error{color:var(--lose);font-size:12px;margin-top:6px;display:none;}
+  select#tournamentSelect{
+    padding:7px 8px;border:0.5px solid var(--border);border-radius:8px;
+    background:var(--bg);color:var(--text);font-size:14px;min-width:220px;
+  }
+  .top-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Simulador TenisGain</h1>
+<p class="sub">Os jogos elegíveis são distribuídos em rodízio entre N linhas independentes (jogo 1 → linha 1, jogo 2 → linha 2, ...). Cada linha recupera seu próprio prejuízo indefinidamente até ganhar, sem afetar as demais.</p>
+
+<div class="top-row">
+  <label style="font-size:12px;color:var(--muted);">Torneio:</label>
+  <select id="tournamentSelect"></select>
+  <button class="secondary" id="deleteTournamentBtn">Excluir torneio</button>
+</div>
+
+<details class="import-card">
+  <summary>Importar novo torneio</summary>
+  <p class="hint">Cole uma linha por partida, na ordem cronológica (mais antiga primeiro). Campos separados por TAB, ponto e vírgula ou vírgula:<br>
+  <strong>Data; Fase; Jogador A; Odd A; Jogador B; Odd B; Vencedor (A, B ou o nome do vencedor)</strong></p>
+  <div class="import-row">
+    <input type="text" id="newTournamentName" placeholder="Nome do torneio (ex: Cincinnati 2026)">
+  </div>
+  <textarea id="importText" placeholder="27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar"></textarea>
+  <div class="error" id="importError"></div>
+  <div class="import-row">
+    <button id="importBtn">Salvar torneio</button>
+    <button class="secondary" id="loadExampleBtn">Carregar exemplo</button>
+  </div>
+</details>
+
+<div class="controls">
+  <div class="field">
+    <label>Odd mínima</label>
+    <input type="number" id="oddMin" value="1.30" step="0.01" min="1.01">
+  </div>
+  <div class="field">
+    <label>Odd máxima</label>
+    <input type="number" id="oddMax" value="1.70" step="0.01" min="1.01">
+  </div>
+  <div class="field">
+    <label>Aposta inicial (R$)</label>
+    <input type="number" id="baseStake" value="10" step="1" min="1">
+  </div>
+  <div class="field side-choice" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="useMartingale" checked> Usar martingale (dividir jogos em linhas paralelas com recuperação própria)</label>
+    </div>
+  </div>
+  <div class="field" id="numLinesField">
+    <label>Número de linhas (sistemas paralelos)</label>
+    <input type="number" id="numLines" value="3" step="1" min="1" max="10">
+  </div>
+  <div class="field" id="recoveryField">
+    <label>Recuperação do prejuízo por linha (%)</label>
+    <input type="number" id="recovery" value="10" step="1" min="0">
+  </div>
+  <div class="field side-choice">
+    <label>Se as duas odds do jogo estiverem dentro da faixa, entrar em:</label>
+    <div class="radio-row">
+      <label><input type="radio" name="sidePick" value="lower" checked> Menor odd (favorito)</label>
+      <label><input type="radio" name="sidePick" value="higher"> Maior odd (azarão)</label>
+    </div>
+  </div>
+</div>
+
+<button id="runBtn">Simular</button>
+
+<div class="stats" id="stats" style="margin-top:16px;"></div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th class="left">Data</th>
+  <th class="left">Jogador (apostado)</th>
+  <th>Odd</th>
+  <th>Linha</th>
+  <th>Tentativa</th>
+  <th>Aposta (R$)</th>
+  <th>Resultado</th>
+  <th>Saldo (R$)</th>
+</tr>
+</thead>
+<tbody id="body"></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const DEFAULT_NAME = "ATP 250 (torneio original)";
+const rawMatchesDefault = [
+["27.07","1R","Griekspoor","1.60","Tabilo","2.30","lose"],
+["27.07","1R","Arnaldi","2.34","Musetti (4)","1.59","lose"],
+["27.07","1R","Bergs","4.21","Fritz (3)","1.22","lose"],
+["27.07","1R","Shang","1.66","Nishikori","2.21","lose"],
+["27.07","1R","Svajda","1.60","Vukic","2.32","lose"],
+["27.07","1R","Tiafoe (6)","3.66","Atmane","1.28","lose"],
+["27.07","1R","Martin","4.27","Humbert","1.22","lose"],
+["27.07","1R","Paul","1.25","Majchrzak","3.91","lose"],
+["27.07","1R","Tien (5)","1.18","Mannarino","4.83","lose"],
+["27.07","1R","Giron","1.15","Hewitt","5.36","lose"],
+["27.07","1R","Etcheverry","3.04","Nakashima","1.38","lose"],
+["27.07","1R","Damm","3.41","Shelton (2)","1.31","lose"],
+["28.07","1R","Svajda","4.13","Mensik (7)","1.22","lose"],
+["29.07","1R","Tsitsipas","2.13","De Minaur (1)","1.71","lose"],
+["29.07","R16","Vukic","3.02","Musetti (4)","1.38","lose"],
+["29.07","R16","Majchrzak","3.72","Fritz (3)","1.27","lose"],
+["29.07","R16","Mannarino","3.27","Michelsen","1.33","lose"],
+["29.07","R16","Nishikori","5.03","Jodar","1.17","lose"],
+["30.07","R16","Mensik (7)","1.62","Nakashima","2.27","lose"],
+["30.07","R16","Hewitt","7.94","De Minaur (1)","1.08","lose"],
+["30.07","R16","Atmane","1.73","Tabilo","2.10","lose"],
+["30.07","R16","Humbert","2.77","Shelton (2)","1.44","lose"],
+["31.07","QF","De Minaur (1)","1.56","Nakashima","2.40","lose"],
+["31.07","QF","Michelsen","2.98","Fritz (3)","1.39","lose"],
+["31.07","QF","Musetti (4)","2.43","Jodar","1.55","lose"],
+["31.07","QF","Shelton (2)","1.28","Tabilo","3.65","lose"],
+["01.08","SF","Nakashima","2.48","Fritz (3)","1.53","lose"],
+["01.08","SF","Tabilo","3.08","Jodar","1.36","lose"],
+["03.08","F","Jodar","2.40","Fritz (3)","1.56","win"]
+];
+
+function rawToMatches(raw){
+  return raw.map(m => ({
+    date:m[0], round:m[1],
+    loserName:m[2], loserOdd:parseFloat(m[3]),
+    winnerName:m[4], winnerOdd:parseFloat(m[5])
+  }));
+}
+
+const STORAGE_KEY = 'tenisgain_tournaments_v1';
+let tournaments = {};
+let currentTournament = DEFAULT_NAME;
+
+function loadTournaments(){
+  try{
+    const stored = localStorage.getItem(STORAGE_KEY);
+    tournaments = stored ? JSON.parse(stored) : {};
+  }catch(e){ tournaments = {}; }
+  if(!tournaments[DEFAULT_NAME]){
+    tournaments[DEFAULT_NAME] = rawToMatches(rawMatchesDefault);
+  }
+}
+
+function saveTournaments(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tournaments)); }
+  catch(e){ /* localStorage indisponível, segue só em memória */ }
+}
+
+function populateSelect(){
+  const sel = document.getElementById('tournamentSelect');
+  sel.innerHTML = '';
+  Object.keys(tournaments).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    if(name === currentTournament) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function parseImport(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  const parsed = [];
+  for(const line of lines){
+    let parts = line.split('\t');
+    if(parts.length<7) parts = line.split(';');
+    if(parts.length<7) parts = line.split(',');
+    parts = parts.map(p=>p.trim());
+    if(parts.length<7) throw new Error('Linha com menos de 7 campos: "'+line+'"');
+    const [date, round, nameA, oddAraw, nameB, oddBraw, vencedor] = parts;
+    const oddA = parseFloat(oddAraw.replace(',','.'));
+    const oddB = parseFloat(oddBraw.replace(',','.'));
+    if(isNaN(oddA) || isNaN(oddB)) throw new Error('Odd inválida na linha: "'+line+'"');
+    const v = vencedor.trim().toLowerCase();
+    const winnerIsA = v === 'a' || v === nameA.trim().toLowerCase();
+    const winnerIsB = v === 'b' || v === nameB.trim().toLowerCase();
+    if(!winnerIsA && !winnerIsB) throw new Error('Vencedor não reconhecido na linha: "'+line+'"');
+    if(winnerIsA){
+      parsed.push({date, round, winnerName:nameA, winnerOdd:oddA, loserName:nameB, loserOdd:oddB});
+    } else {
+      parsed.push({date, round, winnerName:nameB, winnerOdd:oddB, loserName:nameA, loserOdd:oddA});
+    }
+  }
+  if(parsed.length===0) throw new Error('Nenhuma partida reconhecida.');
+  return parsed;
+}
+
+function fmt(n){ return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function simulate(){
+  const oddMin = parseFloat(document.getElementById('oddMin').value);
+  const oddMax = parseFloat(document.getElementById('oddMax').value);
+  const useMartingale = document.getElementById('useMartingale').checked;
+  const recoveryPct = parseFloat(document.getElementById('recovery').value)/100;
+  const baseStake = parseFloat(document.getElementById('baseStake').value);
+  const numLines = useMartingale ? Math.max(1, parseInt(document.getElementById('numLines').value) || 1) : 1;
+  const sidePick = document.querySelector('input[name="sidePick"]:checked').value;
+
+  const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
+  let bankroll = 0;
+  let wins=0, losses=0, qualifiedCount=0;
+  let currentStreak=0, maxStreak=0, maxAttempts=0;
+
+  const rows = [];
+  const matches = tournaments[currentTournament] || [];
+
+  matches.forEach(m => {
+    const candA = { name:m.winnerName, odd:m.winnerOdd, won:true };
+    const candB = { name:m.loserName, odd:m.loserOdd, won:false };
+    const inA = candA.odd >= oddMin && candA.odd <= oddMax;
+    const inB = candB.odd >= oddMin && candB.odd <= oddMax;
+
+    let chosen = null;
+    if(inA && inB){
+      chosen = sidePick === 'lower'
+        ? (candA.odd <= candB.odd ? candA : candB)
+        : (candA.odd >= candB.odd ? candA : candB);
+    } else if(inA){ chosen = candA; }
+    else if(inB){ chosen = candB; }
+
+    if(!chosen){
+      rows.push({date:m.date, round:m.round, name:'-', odd:'-', lineNum:'-', attempt:'-', stake:'-', result:'fora do filtro', bankroll:bankroll, out:true});
+      return;
+    }
+
+    const lineIndex = qualifiedCount % numLines;
+    const lineState = lines[lineIndex];
+    qualifiedCount++;
+
+    const attempt = lineState.attempts + 1;
+    let stake;
+    if(attempt === 1){
+      stake = baseStake;
+    } else {
+      const targetProfit = baseStake * recoveryPct;
+      stake = (lineState.accLoss + targetProfit) / (chosen.odd - 1);
+    }
+    stake = Math.round(stake*100)/100;
+
+    let resultLabel, res;
+    if(chosen.won){
+      const profit = Math.round((stake*(chosen.odd-1))*100)/100;
+      bankroll = Math.round((bankroll + profit)*100)/100;
+      resultLabel = 'GANHOU';
+      res='win';
+      wins++;
+      currentStreak=0;
+      lineState.accLoss = 0;
+      lineState.attempts = 0;
+    } else {
+      bankroll = Math.round((bankroll - stake)*100)/100;
+      lineState.accLoss = Math.round((lineState.accLoss + stake)*100)/100;
+      lineState.attempts = attempt;
+      resultLabel = 'PERDEU';
+      res='lose';
+      losses++;
+      currentStreak++;
+      if(currentStreak>maxStreak) maxStreak=currentStreak;
+      if(attempt>maxAttempts) maxAttempts=attempt;
+    }
+
+    rows.push({
+      date:m.date, round:m.round, name:chosen.name, odd:chosen.odd.toFixed(2),
+      lineNum: lineIndex+1, attempt: attempt,
+      stake: fmt(stake), result: resultLabel, bankroll: bankroll, res: res
+    });
+  });
+
+  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, numLines};
+}
+
+function render(){
+  const r = simulate();
+  const body = document.getElementById('body');
+  body.innerHTML = '';
+  r.rows.forEach(row => {
+    const tr = document.createElement('tr');
+    if(row.out){ tr.className='out'; }
+    else if(row.res==='win'){ tr.className='win'; }
+    else { tr.className='lose'; }
+    tr.innerHTML = `
+      <td class="left">${row.date} <span style="color:var(--muted);font-size:11px;">${row.round}</span></td>
+      <td class="left">${row.name}</td>
+      <td>${row.odd}</td>
+      <td>${row.out ? '-' : '<span class="badge-line">Linha '+row.lineNum+'</span>'}</td>
+      <td>${row.out ? '-' : row.attempt}</td>
+      <td>${row.stake}</td>
+      <td class="res">${row.result}</td>
+      <td>${row.out ? '-' : fmt(row.bankroll)}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  const winRate = r.qualifiedCount ? Math.round((r.wins/r.qualifiedCount)*1000)/10 : 0;
+  const stats = document.getElementById('stats');
+  stats.innerHTML = `
+    <div class="stat"><div class="label">Saldo final</div><div class="value" style="color:${r.bankroll>=0?'var(--win)':'var(--lose)'}">R$ ${fmt(r.bankroll)}</div></div>
+    <div class="stat"><div class="label">Jogos elegíveis</div><div class="value">${r.qualifiedCount}</div></div>
+    <div class="stat"><div class="label">Taxa de acerto (por entrada)</div><div class="value">${winRate}%</div></div>
+    <div class="stat"><div class="label">Maior nº de tentativas em uma linha</div><div class="value">${r.maxAttempts||1}</div></div>
+    <div class="stat"><div class="label">Maior sequência de perdas seguidas</div><div class="value">${r.maxStreak}</div></div>
+  `;
+}
+
+const EXAMPLE_TEXT = `27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+28.07;1R;Svajda;4.13;Mensik (7);1.22;Mensik (7)
+31.07;QF;De Minaur (1);1.56;Nakashima;2.40;Nakashima
+03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar`;
+
+document.getElementById('runBtn').addEventListener('click', render);
+
+function toggleMartingaleFields(){
+  const on = document.getElementById('useMartingale').checked;
+  document.getElementById('numLinesField').style.display = on ? '' : 'none';
+  document.getElementById('recoveryField').style.display = on ? '' : 'none';
+}
+document.getElementById('useMartingale').addEventListener('change', ()=>{
+  toggleMartingaleFields();
+  render();
+});
+toggleMartingaleFields();
+
+document.getElementById('tournamentSelect').addEventListener('change', (e)=>{
+  currentTournament = e.target.value;
+  render();
+});
+
+document.getElementById('deleteTournamentBtn').addEventListener('click', ()=>{
+  if(Object.keys(tournaments).length<=1){
+    alert('Precisa existir pelo menos um torneio.');
+    return;
+  }
+  if(!confirm('Excluir o torneio "'+currentTournament+'"? Essa ação não pode ser desfeita.')) return;
+  delete tournaments[currentTournament];
+  saveTournaments();
+  currentTournament = Object.keys(tournaments)[0];
+  populateSelect();
+  render();
+});
+
+document.getElementById('loadExampleBtn').addEventListener('click', ()=>{
+  document.getElementById('importText').value = EXAMPLE_TEXT;
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  const errEl = document.getElementById('importError');
+  errEl.style.display = 'none';
+  const name = document.getElementById('newTournamentName').value.trim();
+  const text = document.getElementById('importText').value;
+  if(!name){
+    errEl.textContent = 'Informe um nome para o torneio.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!text.trim()){
+    errEl.textContent = 'Cole os dados das partidas antes de salvar.';
+    errEl.style.display = 'block';
+    return;
+  }
+  try{
+    const parsedMatches = parseImport(text);
+    tournaments[name] = parsedMatches;
+    saveTournaments();
+    currentTournament = name;
+    populateSelect();
+    document.getElementById('newTournamentName').value = '';
+    document.getElementById('importText').value = '';
+    render();
+  }catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+});
+
+loadTournaments();
+populateSelect();
+render();
+</script>
+</body>
+</html>
