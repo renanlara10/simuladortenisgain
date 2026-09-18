@@ -415,7 +415,7 @@ function simulate(){
 
     const attempt = lineState.attempts + 1;
     let stake;
-    if(attempt === 1){
+    if(lineState.accLoss <= 0){
       stake = baseStake;
     } else {
       const targetProfit = getTargetProfit();
