@@ -149,9 +149,20 @@
     <label>Número de linhas (sistemas paralelos)</label>
     <input type="number" id="numLines" value="3" step="1" min="1" max="10">
   </div>
+  <div class="field side-choice" id="profitModeField" style="grid-column:1 / -1;">
+    <label>Como definir o lucro alvo de cada recuperação?</label>
+    <div class="radio-row">
+      <label><input type="radio" name="profitMode" value="percent" checked> % da aposta inicial</label>
+      <label><input type="radio" name="profitMode" value="fixed"> Valor fixo em R$</label>
+    </div>
+  </div>
   <div class="field" id="recoveryField">
     <label>Recuperação do prejuízo por linha (%)</label>
     <input type="number" id="recovery" value="10" step="1" min="0">
+  </div>
+  <div class="field" id="targetProfitField" style="display:none;">
+    <label>Lucro alvo por recuperação (R$)</label>
+    <input type="number" id="targetProfitFixed" value="10" step="1" min="0">
   </div>
   <div class="field side-choice">
     <label>Se as duas odds do jogo estiverem dentro da faixa, entrar em:</label>
@@ -290,10 +301,16 @@ function simulate(){
   const oddMin = parseFloat(document.getElementById('oddMin').value);
   const oddMax = parseFloat(document.getElementById('oddMax').value);
   const useMartingale = document.getElementById('useMartingale').checked;
+  const profitMode = document.querySelector('input[name="profitMode"]:checked').value;
   const recoveryPct = parseFloat(document.getElementById('recovery').value)/100;
+  const targetProfitFixed = parseFloat(document.getElementById('targetProfitFixed').value);
   const baseStake = parseFloat(document.getElementById('baseStake').value);
   const numLines = useMartingale ? Math.max(1, parseInt(document.getElementById('numLines').value) || 1) : 1;
   const sidePick = document.querySelector('input[name="sidePick"]:checked').value;
+
+  function getTargetProfit(){
+    return profitMode === 'fixed' ? targetProfitFixed : baseStake * recoveryPct;
+  }
 
   const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
   let bankroll = 0;
@@ -331,7 +348,7 @@ function simulate(){
     if(attempt === 1){
       stake = baseStake;
     } else {
-      const targetProfit = baseStake * recoveryPct;
+      const targetProfit = getTargetProfit();
       stake = (lineState.accLoss + targetProfit) / (chosen.odd - 1);
     }
     stake = Math.round(stake*100)/100;
@@ -412,11 +429,24 @@ document.getElementById('runBtn').addEventListener('click', render);
 function toggleMartingaleFields(){
   const on = document.getElementById('useMartingale').checked;
   document.getElementById('numLinesField').style.display = on ? '' : 'none';
-  document.getElementById('recoveryField').style.display = on ? '' : 'none';
+  document.getElementById('profitModeField').style.display = on ? '' : 'none';
+  toggleProfitModeFields();
+}
+function toggleProfitModeFields(){
+  const on = document.getElementById('useMartingale').checked;
+  const mode = document.querySelector('input[name="profitMode"]:checked').value;
+  document.getElementById('recoveryField').style.display = (on && mode==='percent') ? '' : 'none';
+  document.getElementById('targetProfitField').style.display = (on && mode==='fixed') ? '' : 'none';
 }
 document.getElementById('useMartingale').addEventListener('change', ()=>{
   toggleMartingaleFields();
   render();
+});
+document.querySelectorAll('input[name="profitMode"]').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    toggleProfitModeFields();
+    render();
+  });
 });
 toggleMartingaleFields();
 
