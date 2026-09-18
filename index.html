@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <title>Simulador TenisGain</title>
@@ -378,7 +378,7 @@ function simulate(){
   const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
   let bankroll = 0;
   let wins=0, losses=0, qualifiedCount=0;
-  let currentStreak=0, maxStreak=0, maxAttempts=0;
+  let currentStreak=0, maxStreak=0, maxAttempts=0, maxStake=0;
 
   const rows = [];
   const matches = getMatches(currentTournament);
@@ -415,6 +415,7 @@ function simulate(){
       stake = (lineState.accLoss + targetProfit) / (chosen.odd - 1);
     }
     stake = Math.round(stake*100)/100;
+    if(stake>maxStake) maxStake=stake;
 
     let resultLabel, res;
     if(chosen.won){
@@ -445,7 +446,7 @@ function simulate(){
     });
   });
 
-  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, numLines};
+  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, numLines};
 }
 
 function render(){
@@ -477,6 +478,7 @@ function render(){
     <div class="stat"><div class="label">Jogos elegíveis</div><div class="value">${r.qualifiedCount}</div></div>
     <div class="stat"><div class="label">Taxa de acerto (por entrada)</div><div class="value">${winRate}%</div></div>
     <div class="stat"><div class="label">Maior nº de tentativas em uma linha</div><div class="value">${r.maxAttempts||1}</div></div>
+    <div class="stat"><div class="label">Maior aposta utilizada</div><div class="value">R$ ${fmt(r.maxStake)}</div></div>
     <div class="stat"><div class="label">Maior sequência de perdas seguidas</div><div class="value">${r.maxStreak}</div></div>
   `;
 }
