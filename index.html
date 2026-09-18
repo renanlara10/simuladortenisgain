@@ -317,6 +317,7 @@ function compileGeral(){
   saveTournaments();
   currentTournament = 'Geral Acumulado';
   populateSelect();
+  saveSettings();
   render();
 }
 
@@ -493,6 +494,52 @@ document.getElementById('compileGeralBtn').addEventListener('click', compileGera
 
 document.getElementById('runBtn').addEventListener('click', render);
 
+const SETTINGS_KEY = 'tenisgain_settings_v1';
+
+function saveSettings(){
+  try{
+    const settings = {
+      oddMin: document.getElementById('oddMin').value,
+      oddMax: document.getElementById('oddMax').value,
+      baseStake: document.getElementById('baseStake').value,
+      useMartingale: document.getElementById('useMartingale').checked,
+      numLines: document.getElementById('numLines').value,
+      profitMode: document.querySelector('input[name="profitMode"]:checked').value,
+      recovery: document.getElementById('recovery').value,
+      targetProfitFixed: document.getElementById('targetProfitFixed').value,
+      sidePick: document.querySelector('input[name="sidePick"]:checked').value,
+      currentTournament: currentTournament
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }catch(e){ /* localStorage indisponível, segue só em memória */ }
+}
+
+function loadSettings(){
+  try{
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if(!stored) return;
+    const s = JSON.parse(stored);
+    if(s.oddMin!=null) document.getElementById('oddMin').value = s.oddMin;
+    if(s.oddMax!=null) document.getElementById('oddMax').value = s.oddMax;
+    if(s.baseStake!=null) document.getElementById('baseStake').value = s.baseStake;
+    if(s.useMartingale!=null) document.getElementById('useMartingale').checked = s.useMartingale;
+    if(s.numLines!=null) document.getElementById('numLines').value = s.numLines;
+    if(s.recovery!=null) document.getElementById('recovery').value = s.recovery;
+    if(s.targetProfitFixed!=null) document.getElementById('targetProfitFixed').value = s.targetProfitFixed;
+    if(s.profitMode){
+      const el = document.querySelector('input[name="profitMode"][value="'+s.profitMode+'"]');
+      if(el) el.checked = true;
+    }
+    if(s.sidePick){
+      const el = document.querySelector('input[name="sidePick"][value="'+s.sidePick+'"]');
+      if(el) el.checked = true;
+    }
+    if(s.currentTournament && tournaments[s.currentTournament]){
+      currentTournament = s.currentTournament;
+    }
+  }catch(e){ /* ignora configuração corrompida */ }
+}
+
 function toggleMartingaleFields(){
   const on = document.getElementById('useMartingale').checked;
   document.getElementById('numLinesField').style.display = on ? '' : 'none';
@@ -507,11 +554,25 @@ function toggleProfitModeFields(){
 }
 document.getElementById('useMartingale').addEventListener('change', ()=>{
   toggleMartingaleFields();
+  saveSettings();
   render();
 });
 document.querySelectorAll('input[name="profitMode"]').forEach(el=>{
   el.addEventListener('change', ()=>{
     toggleProfitModeFields();
+    saveSettings();
+    render();
+  });
+});
+['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    saveSettings();
+    render();
+  });
+});
+document.querySelectorAll('input[name="sidePick"]').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    saveSettings();
     render();
   });
 });
@@ -519,6 +580,7 @@ toggleMartingaleFields();
 
 document.getElementById('tournamentSelect').addEventListener('change', (e)=>{
   currentTournament = e.target.value;
+  saveSettings();
   render();
 });
 
@@ -532,6 +594,7 @@ document.getElementById('deleteTournamentBtn').addEventListener('click', ()=>{
   saveTournaments();
   currentTournament = Object.keys(tournaments)[0];
   populateSelect();
+  saveSettings();
   render();
 });
 
@@ -568,6 +631,7 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
     populateSelect();
     document.getElementById('newTournamentName').value = '';
     document.getElementById('importText').value = '';
+    saveSettings();
     render();
   }catch(e){
     errEl.textContent = e.message;
@@ -577,6 +641,9 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
 
 loadTournaments();
 populateSelect();
+loadSettings();
+populateSelect();
+toggleMartingaleFields();
 render();
 </script>
 </body>
