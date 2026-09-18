@@ -108,6 +108,7 @@
   <label style="font-size:12px;color:var(--muted);">Torneio:</label>
   <select id="tournamentSelect"></select>
   <button class="secondary" id="deleteTournamentBtn">Excluir torneio</button>
+  <button class="secondary" id="compileGeralBtn">Compilar histórico geral</button>
 </div>
 
 <details class="import-card">
@@ -116,6 +117,7 @@
   <strong>Data; Fase; Jogador A; Odd A; Jogador B; Odd B; Vencedor (A, B ou o nome do vencedor)</strong></p>
   <div class="import-row">
     <input type="text" id="newTournamentName" placeholder="Nome do torneio (ex: Cincinnati 2026)">
+    <input type="number" id="newTournamentYear" placeholder="Ano" style="max-width:100px;" value="2026">
   </div>
   <textarea id="importText" placeholder="27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
 27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
@@ -242,19 +244,80 @@ const STORAGE_KEY = 'tenisgain_tournaments_v1';
 let tournaments = {};
 let currentTournament = DEFAULT_NAME;
 
+// Normaliza um torneio para o formato {year, matches}, migrando o formato
+// antigo (array puro de partidas, sem ano) usado antes desta versão.
+function normalizeTournament(value){
+  if(Array.isArray(value)){
+    return { year: null, matches: value };
+  }
+  if(value && Array.isArray(value.matches)){
+    return { year: (typeof value.year === 'number' ? value.year : null), matches: value.matches };
+  }
+  return { year: null, matches: [] };
+}
+
+function getMatches(name){
+  const t = tournaments[name];
+  return t ? t.matches : [];
+}
+
 function loadTournaments(){
   try{
     const stored = localStorage.getItem(STORAGE_KEY);
-    tournaments = stored ? JSON.parse(stored) : {};
+    const parsed = stored ? JSON.parse(stored) : {};
+    tournaments = {};
+    Object.keys(parsed).forEach(name => {
+      tournaments[name] = normalizeTournament(parsed[name]);
+    });
   }catch(e){ tournaments = {}; }
   if(!tournaments[DEFAULT_NAME]){
-    tournaments[DEFAULT_NAME] = rawToMatches(rawMatchesDefault);
+    tournaments[DEFAULT_NAME] = { year: 2026, matches: rawToMatches(rawMatchesDefault) };
   }
 }
 
 function saveTournaments(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tournaments)); }
   catch(e){ /* localStorage indisponível, segue só em memória */ }
+}
+
+function parseDateKey(dateStr, year){
+  const parts = dateStr.split('.');
+  const day = parseInt(parts[0],10) || 0;
+  const month = parseInt(parts[1],10) || 0;
+  const y = year || 0;
+  return y*10000 + month*100 + day;
+}
+
+function compileGeral(){
+  const names = Object.keys(tournaments).filter(n => n !== 'Geral Acumulado');
+  if(names.length === 0){
+    alert('Não há torneios salvos para compilar.');
+    return;
+  }
+  const missingYear = names.filter(n => !tournaments[n].year);
+  if(missingYear.length > 0){
+    alert('Estes torneios não têm um ano definido e não podem ser ordenados corretamente: '
+      + missingYear.join(', ')
+      + '.\n\nExclua e reimporte-os informando o ano, ou edite manualmente antes de compilar.');
+    return;
+  }
+  let all = [];
+  names.forEach(n => {
+    const year = tournaments[n].year;
+    tournaments[n].matches.forEach(m => {
+      all.push(Object.assign({}, m, { _sortKey: parseDateKey(m.date, year), _year: year }));
+    });
+  });
+  all.sort((a,b) => a._sortKey - b._sortKey);
+  const merged = all.map(m => {
+    const { _sortKey, _year, ...rest } = m;
+    return rest;
+  });
+  tournaments['Geral Acumulado'] = { year: null, matches: merged };
+  saveTournaments();
+  currentTournament = 'Geral Acumulado';
+  populateSelect();
+  render();
 }
 
 function populateSelect(){
@@ -318,7 +381,7 @@ function simulate(){
   let currentStreak=0, maxStreak=0, maxAttempts=0;
 
   const rows = [];
-  const matches = tournaments[currentTournament] || [];
+  const matches = getMatches(currentTournament);
 
   matches.forEach(m => {
     const candA = { name:m.winnerName, odd:m.winnerOdd, won:true };
@@ -424,6 +487,8 @@ const EXAMPLE_TEXT = `27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
 31.07;QF;De Minaur (1);1.56;Nakashima;2.40;Nakashima
 03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar`;
 
+document.getElementById('compileGeralBtn').addEventListener('click', compileGeral);
+
 document.getElementById('runBtn').addEventListener('click', render);
 
 function toggleMartingaleFields(){
@@ -476,9 +541,15 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
   const errEl = document.getElementById('importError');
   errEl.style.display = 'none';
   const name = document.getElementById('newTournamentName').value.trim();
+  const yearVal = parseInt(document.getElementById('newTournamentYear').value, 10);
   const text = document.getElementById('importText').value;
   if(!name){
     errEl.textContent = 'Informe um nome para o torneio.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!yearVal){
+    errEl.textContent = 'Informe o ano do torneio (necessário para compilar o histórico geral em ordem cronológica).';
     errEl.style.display = 'block';
     return;
   }
@@ -489,7 +560,7 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
   }
   try{
     const parsedMatches = parseImport(text);
-    tournaments[name] = parsedMatches;
+    tournaments[name] = { year: yearVal, matches: parsedMatches };
     saveTournaments();
     currentTournament = name;
     populateSelect();
