@@ -166,6 +166,11 @@
     <label>Lucro alvo por recuperação (R$)</label>
     <input type="number" id="targetProfitFixed" value="10" step="1" min="0">
   </div>
+  <div class="field side-choice" id="riskMitigationField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="riskMitigation"> Mitigar risco: redistribuir 50% do prejuízo da linha entre as demais a cada 3 reds seguidos nela</label>
+    </div>
+  </div>
   <div class="field side-choice">
     <label>Se as duas odds do jogo estiverem dentro da faixa, entrar em:</label>
     <div class="radio-row">
@@ -371,6 +376,7 @@ function simulate(){
   const baseStake = parseFloat(document.getElementById('baseStake').value);
   const numLines = useMartingale ? Math.max(1, parseInt(document.getElementById('numLines').value) || 1) : 1;
   const sidePick = document.querySelector('input[name="sidePick"]:checked').value;
+  const riskMitigation = document.getElementById('riskMitigation').checked;
 
   function getTargetProfit(){
     return profitMode === 'fixed' ? targetProfitFixed : baseStake * recoveryPct;
@@ -379,7 +385,7 @@ function simulate(){
   const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
   let bankroll = 0;
   let wins=0, losses=0, qualifiedCount=0;
-  let currentStreak=0, maxStreak=0, maxAttempts=0, maxStake=0;
+  let currentStreak=0, maxStreak=0, maxAttempts=0, maxStake=0, redistCount=0;
 
   const rows = [];
   const matches = getMatches(currentTournament);
@@ -418,7 +424,7 @@ function simulate(){
     stake = Math.round(stake*100)/100;
     if(stake>maxStake) maxStake=stake;
 
-    let resultLabel, res;
+    let resultLabel, res, redistNote = '';
     if(chosen.won){
       const profit = Math.round((stake*(chosen.odd-1))*100)/100;
       bankroll = Math.round((bankroll + profit)*100)/100;
@@ -438,16 +444,28 @@ function simulate(){
       currentStreak++;
       if(currentStreak>maxStreak) maxStreak=currentStreak;
       if(attempt>maxAttempts) maxAttempts=attempt;
+
+      if(riskMitigation && numLines>1 && attempt%3===0){
+        const redistTotal = Math.round(lineState.accLoss*0.5*100)/100;
+        const otherIdx = lines.map((_,i)=>i).filter(i=>i!==lineIndex);
+        const perLine = Math.round((redistTotal/otherIdx.length)*100)/100;
+        otherIdx.forEach(i=>{
+          lines[i].accLoss = Math.round((lines[i].accLoss+perLine)*100)/100;
+        });
+        lineState.accLoss = Math.round((lineState.accLoss-redistTotal)*100)/100;
+        redistCount++;
+        redistNote = ' • redistribuiu R$ '+fmt(redistTotal)+' entre as demais linhas';
+      }
     }
 
     rows.push({
       date:m.date, round:m.round, name:chosen.name, odd:chosen.odd.toFixed(2),
       lineNum: lineIndex+1, attempt: attempt,
-      stake: fmt(stake), result: resultLabel, bankroll: bankroll, res: res
+      stake: fmt(stake), result: resultLabel+redistNote, bankroll: bankroll, res: res
     });
   });
 
-  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, numLines};
+  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, redistCount, numLines};
 }
 
 function render(){
@@ -480,6 +498,7 @@ function render(){
     <div class="stat"><div class="label">Taxa de acerto (por entrada)</div><div class="value">${winRate}%</div></div>
     <div class="stat"><div class="label">Maior nº de tentativas em uma linha</div><div class="value">${r.maxAttempts||1}</div></div>
     <div class="stat"><div class="label">Maior aposta utilizada</div><div class="value">R$ ${fmt(r.maxStake)}</div></div>
+    <div class="stat"><div class="label">Redistribuições de risco realizadas</div><div class="value">${r.redistCount}</div></div>
     <div class="stat"><div class="label">Maior sequência de perdas seguidas</div><div class="value">${r.maxStreak}</div></div>
   `;
 }
@@ -503,6 +522,7 @@ function saveSettings(){
       oddMax: document.getElementById('oddMax').value,
       baseStake: document.getElementById('baseStake').value,
       useMartingale: document.getElementById('useMartingale').checked,
+      riskMitigation: document.getElementById('riskMitigation').checked,
       numLines: document.getElementById('numLines').value,
       profitMode: document.querySelector('input[name="profitMode"]:checked').value,
       recovery: document.getElementById('recovery').value,
@@ -523,6 +543,7 @@ function loadSettings(){
     if(s.oddMax!=null) document.getElementById('oddMax').value = s.oddMax;
     if(s.baseStake!=null) document.getElementById('baseStake').value = s.baseStake;
     if(s.useMartingale!=null) document.getElementById('useMartingale').checked = s.useMartingale;
+    if(s.riskMitigation!=null) document.getElementById('riskMitigation').checked = s.riskMitigation;
     if(s.numLines!=null) document.getElementById('numLines').value = s.numLines;
     if(s.recovery!=null) document.getElementById('recovery').value = s.recovery;
     if(s.targetProfitFixed!=null) document.getElementById('targetProfitFixed').value = s.targetProfitFixed;
@@ -554,6 +575,10 @@ function toggleProfitModeFields(){
 }
 document.getElementById('useMartingale').addEventListener('change', ()=>{
   toggleMartingaleFields();
+  saveSettings();
+  render();
+});
+document.getElementById('riskMitigation').addEventListener('change', ()=>{
   saveSettings();
   render();
 });
