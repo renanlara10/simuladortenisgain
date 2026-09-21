@@ -115,55 +115,6 @@
   </select>
   <button class="secondary" id="compileGeralBtn">Compilar histórico</button>
 </div>
-<div class="top-row">
-  <button class="secondary" id="exportBtn">⬇ Exportar backup (torneios + parâmetros)</button>
-  <button class="secondary" id="importBackupBtn">⬆ Importar backup</button>
-  <input type="file" id="importBackupFile" accept="application/json" style="display:none;">
-</div>
-
-<details class="import-card">
-  <summary>☁️ Sincronização na nuvem (Firebase)</summary>
-  <p class="hint">
-    Pra usar em vários dispositivos com os mesmos dados, crie um projeto grátis em
-    <strong>console.firebase.google.com</strong> → "Adicionar projeto" → ative o
-    <strong>Firestore Database</strong> (modo produção) → nas configurações do projeto
-    (ícone de engrenagem), crie um "App da Web" e copie os valores abaixo.<br><br>
-    Nas regras do Firestore, cole isto (permite acesso só a quem souber o código exato,
-    sem listar todos os códigos existentes):<br>
-    <code style="display:block;background:var(--line-bg);padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /tenisgain_sync/{code} {
-      allow get, write: if true;
-      allow list: if false;
-    }
-  }
-}</code>
-  </p>
-  <div class="import-row">
-    <input type="text" id="cfgApiKey" placeholder="apiKey">
-    <input type="text" id="cfgAuthDomain" placeholder="authDomain">
-  </div>
-  <div class="import-row">
-    <input type="text" id="cfgProjectId" placeholder="projectId">
-    <input type="text" id="cfgAppId" placeholder="appId">
-  </div>
-  <div class="import-row">
-    <input type="text" id="syncCode" placeholder="Código de sincronização (escolha algo único e difícil de adivinhar)">
-  </div>
-  <div class="import-row">
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
-      <input type="checkbox" id="autoSyncEnabled"> Sincronizar automaticamente a cada alteração
-    </label>
-  </div>
-  <div class="error" id="cloudError"></div>
-  <div class="import-row">
-    <button id="saveCloudConfigBtn">Salvar configuração</button>
-    <button class="secondary" id="cloudPushBtn">Enviar para nuvem ⬆</button>
-    <button class="secondary" id="cloudPullBtn">Baixar da nuvem ⬇</button>
-  </div>
-  <p class="hint" id="cloudStatus">Nenhuma configuração salva ainda.</p>
-</details>
 
 <details class="import-card">
   <summary>Importar novo torneio</summary>
@@ -209,6 +160,15 @@ service cloud.firestore {
   <div class="field" id="numLinesField">
     <label>Número de linhas (sistemas paralelos)</label>
     <input type="number" id="numLines" value="3" step="1" min="1" max="10">
+  </div>
+  <div class="field side-choice" id="carryLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="carryLossEnabled"> Iniciar já com prejuízo de torneio anterior, distribuído entre as linhas</label>
+    </div>
+  </div>
+  <div class="field" id="carryLossAmountField">
+    <label>Valor total do prejuízo a distribuir (R$)</label>
+    <input type="number" id="carryLossAmount" value="0" step="10" min="0">
   </div>
   <div class="field side-choice" id="profitModeField" style="grid-column:1 / -1;">
     <label>Como definir o lucro alvo de cada recuperação?</label>
@@ -362,12 +322,9 @@ function loadTournaments(){
   }
 }
 
-let suppressCloudPush = false;
-
 function saveTournaments(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tournaments)); }
   catch(e){ /* localStorage indisponível, segue só em memória */ }
-  if(!suppressCloudPush) scheduleCloudPush();
 }
 
 function parseDateKey(dateStr, year){
@@ -488,12 +445,19 @@ function simulate(){
   const stopLossEnabled = document.getElementById('stopLossEnabled').checked;
   const stopLossMaxAttempts = parseInt(document.getElementById('stopLossMaxAttempts').value) || 0;
   const stopLossMaxStake = parseFloat(document.getElementById('stopLossMaxStake').value) || 0;
+  const carryLossEnabled = document.getElementById('carryLossEnabled').checked;
+  const carryLossAmount = parseFloat(document.getElementById('carryLossAmount').value) || 0;
 
   function getTargetProfit(){
     return profitMode === 'fixed' ? targetProfitFixed : baseStake * recoveryPct;
   }
 
   const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
+  let carriedPerLine = 0;
+  if(carryLossEnabled && carryLossAmount>0){
+    carriedPerLine = Math.round((carryLossAmount/numLines)*100)/100;
+    lines.forEach(l=>{ l.accLoss = carriedPerLine; });
+  }
   let bankroll = 0;
   let wins=0, losses=0, qualifiedCount=0;
   let currentStreak=0, maxStreak=0, maxAttempts=0, maxStake=0, redistCount=0, stopLossCount=0;
@@ -586,7 +550,7 @@ function simulate(){
     });
   });
 
-  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, redistCount, stopLossCount, numLines};
+  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, redistCount, stopLossCount, numLines, carriedPerLine, carryLossAmount};
 }
 
 function render(){
@@ -622,6 +586,7 @@ function render(){
     <div class="stat"><div class="label">Redistribuições de risco realizadas</div><div class="value">${r.redistCount}</div></div>
     <div class="stat"><div class="label">Stop-loss acionado</div><div class="value">${r.stopLossCount}</div></div>
     <div class="stat"><div class="label">Maior sequência de perdas seguidas</div><div class="value">${r.maxStreak}</div></div>
+    ${r.carryLossAmount>0 ? `<div class="stat"><div class="label">Prejuízo herdado distribuído</div><div class="value">R$ ${fmt(r.carryLossAmount)} <span style="font-size:12px;color:var(--muted);">(R$ ${fmt(r.carriedPerLine)}/linha)</span></div></div>` : ''}
   `;
 }
 
@@ -633,67 +598,6 @@ const EXAMPLE_TEXT = `27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
 
 document.getElementById('compileGeralBtn').addEventListener('click', ()=>{
   compileGeral(document.getElementById('compileScope').value);
-});
-
-document.getElementById('exportBtn').addEventListener('click', ()=>{
-  let settings = {};
-  try{ settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }catch(e){}
-  const backup = {
-    exportedAt: new Date().toISOString(),
-    tournaments: tournaments,
-    settings: settings
-  };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = 'tenisgain_backup_'+stamp+'.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
-
-document.getElementById('importBackupBtn').addEventListener('click', ()=>{
-  document.getElementById('importBackupFile').click();
-});
-
-document.getElementById('importBackupFile').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt)=>{
-    try{
-      const backup = JSON.parse(evt.target.result);
-      if(!backup.tournaments) throw new Error('Arquivo não parece um backup válido do simulador.');
-      const overwrite = confirm(
-        'Importar este backup vai SUBSTITUIR todos os torneios e parâmetros salvos neste navegador pelos do arquivo (de '
-        + (backup.exportedAt ? new Date(backup.exportedAt).toLocaleString('pt-BR') : 'data desconhecida')
-        + '). Deseja continuar?'
-      );
-      if(!overwrite) return;
-      const normalized = {};
-      Object.keys(backup.tournaments).forEach(name=>{
-        normalized[name] = normalizeTournament(backup.tournaments[name]);
-      });
-      tournaments = normalized;
-      saveTournaments();
-      if(backup.settings){
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(backup.settings));
-      }
-      loadSettings();
-      populateSelect();
-      toggleMartingaleFields();
-      render();
-      alert('Backup importado com sucesso.');
-    }catch(err){
-      alert('Não foi possível importar: '+err.message);
-    }finally{
-      e.target.value = '';
-    }
-  };
-  reader.readAsText(file);
 });
 
 document.getElementById('runBtn').addEventListener('click', render);
@@ -712,6 +616,8 @@ function saveSettings(){
       stopLossEnabled: document.getElementById('stopLossEnabled').checked,
       stopLossMaxAttempts: document.getElementById('stopLossMaxAttempts').value,
       stopLossMaxStake: document.getElementById('stopLossMaxStake').value,
+      carryLossEnabled: document.getElementById('carryLossEnabled').checked,
+      carryLossAmount: document.getElementById('carryLossAmount').value,
       numLines: document.getElementById('numLines').value,
       profitMode: document.querySelector('input[name="profitMode"]:checked').value,
       recovery: document.getElementById('recovery').value,
@@ -721,7 +627,6 @@ function saveSettings(){
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }catch(e){ /* localStorage indisponível, segue só em memória */ }
-  if(!suppressCloudPush) scheduleCloudPush();
 }
 
 function loadSettings(){
@@ -738,6 +643,8 @@ function loadSettings(){
     if(s.stopLossEnabled!=null) document.getElementById('stopLossEnabled').checked = s.stopLossEnabled;
     if(s.stopLossMaxAttempts!=null) document.getElementById('stopLossMaxAttempts').value = s.stopLossMaxAttempts;
     if(s.stopLossMaxStake!=null) document.getElementById('stopLossMaxStake').value = s.stopLossMaxStake;
+    if(s.carryLossEnabled!=null) document.getElementById('carryLossEnabled').checked = s.carryLossEnabled;
+    if(s.carryLossAmount!=null) document.getElementById('carryLossAmount').value = s.carryLossAmount;
     if(s.numLines!=null) document.getElementById('numLines').value = s.numLines;
     if(s.recovery!=null) document.getElementById('recovery').value = s.recovery;
     if(s.targetProfitFixed!=null) document.getElementById('targetProfitFixed').value = s.targetProfitFixed;
@@ -761,9 +668,11 @@ function toggleMartingaleFields(){
   document.getElementById('profitModeField').style.display = on ? '' : 'none';
   document.getElementById('riskMitigationField').style.display = on ? '' : 'none';
   document.getElementById('stopLossField').style.display = on ? '' : 'none';
+  document.getElementById('carryLossField').style.display = on ? '' : 'none';
   toggleProfitModeFields();
   toggleRiskFields();
   toggleStopLossFields();
+  toggleCarryLossFields();
 }
 function toggleProfitModeFields(){
   const on = document.getElementById('useMartingale').checked;
@@ -780,6 +689,10 @@ function toggleStopLossFields(){
   document.getElementById('stopLossAttemptsField').style.display = on ? '' : 'none';
   document.getElementById('stopLossStakeField').style.display = on ? '' : 'none';
 }
+function toggleCarryLossFields(){
+  const on = document.getElementById('useMartingale').checked && document.getElementById('carryLossEnabled').checked;
+  document.getElementById('carryLossAmountField').style.display = on ? '' : 'none';
+}
 document.getElementById('useMartingale').addEventListener('change', ()=>{
   toggleMartingaleFields();
   saveSettings();
@@ -787,6 +700,11 @@ document.getElementById('useMartingale').addEventListener('change', ()=>{
 });
 document.getElementById('riskMitigation').addEventListener('change', ()=>{
   toggleRiskFields();
+  saveSettings();
+  render();
+});
+document.getElementById('carryLossEnabled').addEventListener('change', ()=>{
+  toggleCarryLossFields();
   saveSettings();
   render();
 });
@@ -802,7 +720,7 @@ document.querySelectorAll('input[name="profitMode"]').forEach(el=>{
     render();
   });
 });
-['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed','redistFrequency','stopLossMaxAttempts','stopLossMaxStake'].forEach(id=>{
+['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed','redistFrequency','stopLossMaxAttempts','stopLossMaxStake','carryLossAmount'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     saveSettings();
     render();
@@ -878,150 +796,12 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
   }
 });
 
-const CLOUD_CONFIG_KEY = 'tenisgain_cloud_config_v1';
-let cloudPushTimer = null;
-
-function getCloudConfig(){
-  try{
-    const stored = localStorage.getItem(CLOUD_CONFIG_KEY);
-    return stored ? JSON.parse(stored) : null;
-  }catch(e){ return null; }
-}
-
-function setCloudStatus(text){
-  const el = document.getElementById('cloudStatus');
-  if(el) el.textContent = text;
-}
-
-function fillCloudForm(cfg){
-  if(!cfg) return;
-  if(cfg.firebaseConfig){
-    document.getElementById('cfgApiKey').value = cfg.firebaseConfig.apiKey || '';
-    document.getElementById('cfgAuthDomain').value = cfg.firebaseConfig.authDomain || '';
-    document.getElementById('cfgProjectId').value = cfg.firebaseConfig.projectId || '';
-    document.getElementById('cfgAppId').value = cfg.firebaseConfig.appId || '';
-  }
-  document.getElementById('syncCode').value = cfg.syncCode || '';
-  document.getElementById('autoSyncEnabled').checked = !!cfg.autoSync;
-}
-
-document.getElementById('saveCloudConfigBtn').addEventListener('click', ()=>{
-  const errEl = document.getElementById('cloudError');
-  errEl.style.display = 'none';
-  const apiKey = document.getElementById('cfgApiKey').value.trim();
-  const authDomain = document.getElementById('cfgAuthDomain').value.trim();
-  const projectId = document.getElementById('cfgProjectId').value.trim();
-  const appId = document.getElementById('cfgAppId').value.trim();
-  const syncCode = document.getElementById('syncCode').value.trim();
-  const autoSync = document.getElementById('autoSyncEnabled').checked;
-  if(!apiKey || !projectId || !appId || !syncCode){
-    errEl.textContent = 'Preencha ao menos apiKey, projectId, appId e o código de sincronização.';
-    errEl.style.display = 'block';
-    return;
-  }
-  const cfg = {
-    firebaseConfig: { apiKey, authDomain, projectId, appId },
-    syncCode, autoSync
-  };
-  localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(cfg));
-  setCloudStatus('Configuração salva. Use "Enviar para nuvem" ou "Baixar da nuvem" pra começar.');
-});
-
-document.getElementById('cloudPushBtn').addEventListener('click', ()=> cloudPush(true));
-document.getElementById('cloudPullBtn').addEventListener('click', ()=> cloudPull(true));
-
-async function cloudPush(manual){
-  const cfg = getCloudConfig();
-  if(!cfg){ if(manual) setCloudStatus('Configure e salve os dados da nuvem primeiro.'); return; }
-  if(!window.TenisGainCloud){ if(manual) setCloudStatus('Carregando Firebase...'); }
-  try{
-    let settings = {};
-    try{ settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }catch(e){}
-    const payload = { tournaments, settings, updatedAt: Date.now() };
-    await window.TenisGainCloud.push(cfg.firebaseConfig, cfg.syncCode, payload);
-    setCloudStatus('Enviado para a nuvem às ' + new Date().toLocaleTimeString('pt-BR') + '.');
-  }catch(e){
-    setCloudStatus('Erro ao enviar para a nuvem: ' + e.message);
-  }
-}
-
-async function cloudPull(manual){
-  const cfg = getCloudConfig();
-  if(!cfg){ if(manual) setCloudStatus('Configure e salve os dados da nuvem primeiro.'); return; }
-  try{
-    const data = await window.TenisGainCloud.pull(cfg.firebaseConfig, cfg.syncCode);
-    if(!data){
-      setCloudStatus('Nenhum dado encontrado na nuvem para esse código ainda. Use "Enviar para nuvem" primeiro.');
-      return;
-    }
-    const normalized = {};
-    Object.keys(data.tournaments || {}).forEach(name=>{
-      normalized[name] = normalizeTournament(data.tournaments[name]);
-    });
-    tournaments = normalized;
-    suppressCloudPush = true;
-    saveTournaments();
-    if(data.settings){
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
-    }
-    suppressCloudPush = false;
-    loadSettings();
-    populateSelect();
-    toggleMartingaleFields();
-    render();
-    setCloudStatus('Dados baixados da nuvem (atualizados em ' + (data.updatedAt ? new Date(data.updatedAt).toLocaleString('pt-BR') : '—') + ').');
-  }catch(e){
-    setCloudStatus('Erro ao baixar da nuvem: ' + e.message);
-  }
-}
-
-function scheduleCloudPush(){
-  const cfg = getCloudConfig();
-  if(!cfg || !cfg.autoSync) return;
-  clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(()=> cloudPush(false), 1500);
-}
-
-const _cloudCfgOnLoad = getCloudConfig();
-if(_cloudCfgOnLoad){
-  fillCloudForm(_cloudCfgOnLoad);
-  setCloudStatus('Configuração carregada.');
-  if(_cloudCfgOnLoad.autoSync){
-    setCloudStatus('Sincronizando automaticamente...');
-    cloudPull(false);
-  }
-}
-
 loadTournaments();
 populateSelect();
 loadSettings();
 populateSelect();
 toggleMartingaleFields();
 render();
-</script>
-<script type="module">
-window.TenisGainCloud = (function(){
-  let app = null, db = null, fs = null;
-  async function ensure(config){
-    if(app) return;
-    const appMod = await import('https://cdn.jsdelivr.net/npm/firebase@10.13.2/app/+esm');
-    fs = await import('https://cdn.jsdelivr.net/npm/firebase@10.13.2/firestore/+esm');
-    app = appMod.initializeApp(config);
-    db = fs.getFirestore(app);
-  }
-  async function push(config, code, data){
-    await ensure(config);
-    const ref = fs.doc(db, 'tenisgain_sync', code);
-    await fs.setDoc(ref, data);
-  }
-  async function pull(config, code){
-    await ensure(config);
-    const ref = fs.doc(db, 'tenisgain_sync', code);
-    const snap = await fs.getDoc(ref);
-    return snap.exists() ? snap.data() : null;
-  }
-  return { push, pull };
-})();
 </script>
 </body>
 </html>
