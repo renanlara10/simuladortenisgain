@@ -222,12 +222,16 @@
   </div>
   <div class="field side-choice" id="riskMitigationField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
     <div class="radio-row" style="height:auto;">
-      <label><input type="checkbox" id="riskMitigation"> Mitigar risco: redistribuir 50% do prejuízo da linha entre as demais</label>
+      <label><input type="checkbox" id="riskMitigation"> Mitigar risco: redistribuir o prejuízo da linha entre as demais</label>
     </div>
   </div>
   <div class="field" id="redistFrequencyField">
     <label>A cada quantos reds seguidos na linha, redistribuir?</label>
     <input type="number" id="redistFrequency" value="3" step="1" min="1" max="10">
+  </div>
+  <div class="field" id="redistPctField">
+    <label>% do prejuízo da linha a redistribuir</label>
+    <input type="number" id="redistPct" value="50" step="5" min="1" max="100">
   </div>
 
   <div class="field side-choice" id="stopLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
@@ -480,6 +484,7 @@ function simulate(){
   const sidePick = document.querySelector('input[name="sidePick"]:checked').value;
   const riskMitigation = document.getElementById('riskMitigation').checked;
   const redistFrequency = Math.max(1, parseInt(document.getElementById('redistFrequency').value) || 3);
+  const redistPct = Math.min(100, Math.max(1, parseFloat(document.getElementById('redistPct').value) || 50));
   const stopLossEnabled = document.getElementById('stopLossEnabled').checked;
   const stopLossMaxAttempts = parseInt(document.getElementById('stopLossMaxAttempts').value) || 0;
   const stopLossMaxStake = parseFloat(document.getElementById('stopLossMaxStake').value) || 0;
@@ -572,7 +577,7 @@ function simulate(){
         lineState.accLoss = 0;
         lineState.attempts = 0;
       } else if(riskMitigation && numLines>1 && attempt%redistFrequency===0){
-        const redistTotal = Math.round(lineState.accLoss*0.5*100)/100;
+        const redistTotal = Math.round(lineState.accLoss*(redistPct/100)*100)/100;
         const otherIdx = lines.map((_,i)=>i).filter(i=>i!==lineIndex);
         const perLine = Math.round((redistTotal/otherIdx.length)*100)/100;
         otherIdx.forEach(i=>{
@@ -580,7 +585,7 @@ function simulate(){
         });
         lineState.accLoss = Math.round((lineState.accLoss-redistTotal)*100)/100;
         redistCount++;
-        redistNote = ' • redistribuiu R$ '+fmt(redistTotal)+' entre as demais linhas';
+        redistNote = ' • redistribuiu '+redistPct+'% (R$ '+fmt(redistTotal)+') entre as demais linhas';
       }
     }
 
@@ -654,6 +659,7 @@ function saveSettings(){
       useMartingale: document.getElementById('useMartingale').checked,
       riskMitigation: document.getElementById('riskMitigation').checked,
       redistFrequency: document.getElementById('redistFrequency').value,
+      redistPct: document.getElementById('redistPct').value,
       stopLossEnabled: document.getElementById('stopLossEnabled').checked,
       stopLossMaxAttempts: document.getElementById('stopLossMaxAttempts').value,
       stopLossMaxStake: document.getElementById('stopLossMaxStake').value,
@@ -683,6 +689,7 @@ function loadSettings(){
     if(s.useMartingale!=null) document.getElementById('useMartingale').checked = s.useMartingale;
     if(s.riskMitigation!=null) document.getElementById('riskMitigation').checked = s.riskMitigation;
     if(s.redistFrequency!=null) document.getElementById('redistFrequency').value = s.redistFrequency;
+    if(s.redistPct!=null) document.getElementById('redistPct').value = s.redistPct;
     if(s.stopLossEnabled!=null) document.getElementById('stopLossEnabled').checked = s.stopLossEnabled;
     if(s.stopLossMaxAttempts!=null) document.getElementById('stopLossMaxAttempts').value = s.stopLossMaxAttempts;
     if(s.stopLossMaxStake!=null) document.getElementById('stopLossMaxStake').value = s.stopLossMaxStake;
@@ -727,6 +734,7 @@ function toggleProfitModeFields(){
 function toggleRiskFields(){
   const on = document.getElementById('useMartingale').checked && document.getElementById('riskMitigation').checked;
   document.getElementById('redistFrequencyField').style.display = on ? '' : 'none';
+  document.getElementById('redistPctField').style.display = on ? '' : 'none';
 }
 function toggleStopLossFields(){
   const on = document.getElementById('useMartingale').checked && document.getElementById('stopLossEnabled').checked;
@@ -765,7 +773,7 @@ document.querySelectorAll('input[name="profitMode"]').forEach(el=>{
     render();
   });
 });
-['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed','redistFrequency','stopLossMaxAttempts','stopLossMaxStake','carryLossAmount','carryLossPct'].forEach(id=>{
+['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed','redistFrequency','redistPct','stopLossMaxAttempts','stopLossMaxStake','carryLossAmount','carryLossPct'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     saveSettings();
     render();
