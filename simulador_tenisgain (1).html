@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>Simulador TenisGain</title>
+<style>
+  :root{
+    --border:#e2ddd0;
+    --bg:#fdfbf6;
+    --card:#ffffff;
+    --text:#2c2a24;
+    --muted:#7a7669;
+    --accent:#d9895a;
+    --accent-text:#ffffff;
+    --win:#4c7a3f;
+    --win-bg:#eaf3de;
+    --lose:#a33232;
+    --lose-bg:#fbe7e5;
+    --line-bg:#f1efe6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --border:#3a352c; --bg:#1c1a16; --card:#242119; --text:#eae4d6; --muted:#a89f8c;
+      --win-bg:#1c2a17; --lose-bg:#2f1918; --line-bg:#2a271f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --border:#3a352c; --bg:#1c1a16; --card:#242119; --text:#eae4d6; --muted:#a89f8c;
+    --win-bg:#1c2a17; --lose-bg:#2f1918; --line-bg:#2a271f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--text);font-family:"Segoe UI",Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:18px;font-weight:500;margin:0 0 4px;}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 20px;}
+  .controls{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px;background:var(--card);border:0.5px solid var(--border);
+    border-radius:12px;padding:16px;margin-bottom:16px;
+  }
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .field input, .field select{
+    width:100%;padding:7px 8px;border:0.5px solid var(--border);border-radius:8px;
+    background:var(--bg);color:var(--text);font-size:14px;
+  }
+  .field.side-choice{grid-column:1 / -1;}
+  .radio-row{display:flex;gap:16px;font-size:13px;align-items:center;height:34px;}
+  .radio-row label{display:flex;align-items:center;gap:6px;color:var(--text);}
+  .stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px;margin-bottom:20px;
+  }
+  .stat{background:var(--line-bg);border-radius:8px;padding:12px;}
+  .stat .label{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .stat .value{font-size:22px;font-weight:500;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  th{background:var(--accent);color:var(--accent-text);padding:6px 8px;text-align:center;font-weight:600;}
+  th.left{text-align:left;}
+  td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);}
+  td.left{text-align:left;font-weight:600;}
+  tr.out td{color:var(--muted);opacity:0.55;}
+  tr.win td{background:var(--win-bg);}
+  tr.win td.res{color:var(--win);font-weight:600;}
+  tr.lose td{background:var(--lose-bg);}
+  tr.lose td.res{color:var(--lose);font-weight:600;}
+  .badge-line{
+    display:inline-block;padding:1px 8px;border-radius:10px;
+    background:var(--line-bg);font-size:12px;font-weight:600;
+  }
+  .table-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:12px;}
+  button{
+    padding:8px 16px;border-radius:8px;border:0.5px solid var(--border);
+    background:var(--accent);color:var(--accent-text);font-weight:600;cursor:pointer;
+    font-size:14px;
+  }
+  button:active{transform:scale(0.98);}
+  button.secondary{background:var(--card);color:var(--text);}
+  textarea{
+    width:100%;min-height:110px;padding:8px;border:0.5px solid var(--border);
+    border-radius:8px;background:var(--bg);color:var(--text);font-size:12px;
+    font-family:ui-monospace,Consolas,monospace;resize:vertical;
+  }
+  .import-card{
+    background:var(--card);border:0.5px solid var(--border);border-radius:12px;
+    padding:16px;margin-bottom:16px;
+  }
+  .import-card summary{cursor:pointer;font-size:14px;font-weight:500;}
+  .import-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;}
+  .import-row input[type=text]{
+    flex:1;min-width:160px;padding:7px 8px;border:0.5px solid var(--border);
+    border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;
+  }
+  .hint{font-size:11px;color:var(--muted);margin:6px 0;}
+  .error{color:var(--lose);font-size:12px;margin-top:6px;display:none;}
+  select#tournamentSelect{
+    padding:7px 8px;border:0.5px solid var(--border);border-radius:8px;
+    background:var(--bg);color:var(--text);font-size:14px;min-width:220px;
+  }
+  .top-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Simulador TenisGain</h1>
+<p class="sub">Os jogos elegíveis são distribuídos em rodízio entre N linhas independentes (jogo 1 → linha 1, jogo 2 → linha 2, ...). Cada linha recupera seu próprio prejuízo indefinidamente até ganhar, sem afetar as demais.</p>
+
+<div class="top-row">
+  <label style="font-size:12px;color:var(--muted);">Torneio:</label>
+  <select id="tournamentSelect"></select>
+  <button class="secondary" id="deleteTournamentBtn">Excluir torneio</button>
+  <select id="compileScope" style="padding:7px 8px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">
+    <option value="ALL">Todos</option>
+    <option value="ATP">Somente ATP</option>
+    <option value="WTA">Somente WTA</option>
+  </select>
+  <button class="secondary" id="compileGeralBtn">Compilar histórico</button>
+</div>
+
+<details class="import-card">
+  <summary>☁️ Sincronizar entre dispositivos (via GitHub)</summary>
+  <p class="hint">
+    Usa um <strong>Gist privado</strong> do GitHub (um arquivo de texto na nuvem) pra guardar seus dados.
+    Passo único: vá em <strong>github.com/settings/tokens</strong> → "Generate new token" →
+    "Generate new token (classic)" → marque só a permissão <strong>gist</strong> → gere e copie o token.
+    Cole abaixo, clique em "Criar Gist" uma vez (só no primeiro dispositivo), e nos outros dispositivos
+    cole o mesmo token + o ID do Gist gerado, e clique em "Baixar".
+  </p>
+  <div class="import-row">
+    <input type="password" id="ghToken" placeholder="Token do GitHub (escopo gist)">
+  </div>
+  <div class="import-row">
+    <input type="text" id="ghGistId" placeholder="ID do Gist (deixe em branco pra criar um novo)">
+  </div>
+  <div class="import-row">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+      <input type="checkbox" id="ghAutoSync"> Sincronizar automaticamente a cada alteração
+    </label>
+  </div>
+  <div class="error" id="ghError"></div>
+  <div class="import-row">
+    <button id="ghSaveConfigBtn">Salvar configuração</button>
+    <button class="secondary" id="ghCreateBtn">Criar Gist (1ª vez)</button>
+    <button class="secondary" id="ghPushBtn">Enviar ⬆</button>
+    <button class="secondary" id="ghPullBtn">Baixar ⬇</button>
+  </div>
+  <p class="hint" id="ghStatus">Nenhuma configuração salva ainda.</p>
+</details>
+
+<details class="import-card">
+  <summary>Importar novo torneio</summary>
+  <p class="hint">Cole uma linha por partida, na ordem cronológica (mais antiga primeiro). Campos separados por TAB, ponto e vírgula ou vírgula:<br>
+  <strong>Data; Fase; Jogador A; Odd A; Jogador B; Odd B; Vencedor (A, B ou o nome do vencedor)</strong></p>
+  <div class="import-row">
+    <input type="text" id="newTournamentName" placeholder="Nome do torneio (ex: Cincinnati 2026)">
+    <input type="number" id="newTournamentYear" placeholder="Ano" style="max-width:100px;" value="2026">
+  </div>
+  <div class="import-row">
+    <label style="font-size:13px;color:var(--muted);">Circuito:</label>
+    <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="radio" name="newTournamentTour" value="ATP" checked> ATP</label>
+    <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="radio" name="newTournamentTour" value="WTA"> WTA</label>
+  </div>
+  <textarea id="importText" placeholder="27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar"></textarea>
+  <div class="error" id="importError"></div>
+  <div class="import-row">
+    <button id="importBtn">Salvar torneio</button>
+    <button class="secondary" id="loadExampleBtn">Carregar exemplo</button>
+  </div>
+</details>
+
+<div class="controls">
+  <div class="field">
+    <label>Odd mínima</label>
+    <input type="number" id="oddMin" value="1.30" step="0.01" min="1.01">
+  </div>
+  <div class="field">
+    <label>Odd máxima</label>
+    <input type="number" id="oddMax" value="1.70" step="0.01" min="1.01">
+  </div>
+  <div class="field">
+    <label>Aposta inicial (R$)</label>
+    <input type="number" id="baseStake" value="10" step="1" min="1">
+  </div>
+  <div class="field side-choice" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="useMartingale" checked> Usar martingale (dividir jogos em linhas paralelas com recuperação própria)</label>
+    </div>
+  </div>
+  <div class="field" id="numLinesField">
+    <label>Número de linhas (sistemas paralelos)</label>
+    <input type="number" id="numLines" value="3" step="1" min="1" max="10">
+  </div>
+  <div class="field side-choice" id="carryLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="carryLossEnabled"> Iniciar já com prejuízo de torneio anterior, distribuído entre as linhas</label>
+    </div>
+  </div>
+  <div class="field" id="carryLossAmountField">
+    <label>Valor total do prejuízo a distribuir (R$)</label>
+    <input type="number" id="carryLossAmount" value="0" step="10" min="0">
+  </div>
+  <div class="field side-choice" id="profitModeField" style="grid-column:1 / -1;">
+    <label>Como definir o lucro alvo de cada recuperação?</label>
+    <div class="radio-row">
+      <label><input type="radio" name="profitMode" value="percent" checked> % da aposta inicial</label>
+      <label><input type="radio" name="profitMode" value="fixed"> Valor fixo em R$</label>
+    </div>
+  </div>
+  <div class="field" id="recoveryField">
+    <label>Recuperação do prejuízo por linha (%)</label>
+    <input type="number" id="recovery" value="10" step="1" min="0">
+  </div>
+  <div class="field" id="targetProfitField" style="display:none;">
+    <label>Lucro alvo por recuperação (R$)</label>
+    <input type="number" id="targetProfitFixed" value="10" step="1" min="0">
+  </div>
+  <div class="field side-choice" id="riskMitigationField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="riskMitigation"> Mitigar risco: redistribuir 50% do prejuízo da linha entre as demais</label>
+    </div>
+  </div>
+  <div class="field" id="redistFrequencyField">
+    <label>A cada quantos reds seguidos na linha, redistribuir?</label>
+    <input type="number" id="redistFrequency" value="3" step="1" min="1" max="10">
+  </div>
+
+  <div class="field side-choice" id="stopLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
+    <div class="radio-row" style="height:auto;">
+      <label><input type="checkbox" id="stopLossEnabled"> Stop-loss por linha: assumir a perda e reiniciar a linha ao atingir um teto</label>
+    </div>
+  </div>
+  <div class="field" id="stopLossAttemptsField">
+    <label>Teto de tentativas seguidas por linha (0 = sem teto)</label>
+    <input type="number" id="stopLossMaxAttempts" value="6" step="1" min="0">
+  </div>
+  <div class="field" id="stopLossStakeField">
+    <label>Teto de aposta por entrada, em R$ (0 = sem teto)</label>
+    <input type="number" id="stopLossMaxStake" value="0" step="10" min="0">
+  </div>
+
+  <div class="field side-choice">
+    <label>Se as duas odds do jogo estiverem dentro da faixa, entrar em:</label>
+    <div class="radio-row">
+      <label><input type="radio" name="sidePick" value="lower" checked> Menor odd (favorito)</label>
+      <label><input type="radio" name="sidePick" value="higher"> Maior odd (azarão)</label>
+    </div>
+  </div>
+</div>
+
+<button id="runBtn">Simular</button>
+
+<div class="stats" id="stats" style="margin-top:16px;"></div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th class="left">Data</th>
+  <th class="left">Jogador (apostado)</th>
+  <th>Odd</th>
+  <th>Linha</th>
+  <th>Tentativa</th>
+  <th>Aposta (R$)</th>
+  <th>Resultado</th>
+  <th>Saldo (R$)</th>
+</tr>
+</thead>
+<tbody id="body"></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const DEFAULT_NAME = "ATP 250 (torneio original)";
+const rawMatchesDefault = [
+["27.07","1R","Griekspoor","1.60","Tabilo","2.30","lose"],
+["27.07","1R","Arnaldi","2.34","Musetti (4)","1.59","lose"],
+["27.07","1R","Bergs","4.21","Fritz (3)","1.22","lose"],
+["27.07","1R","Shang","1.66","Nishikori","2.21","lose"],
+["27.07","1R","Svajda","1.60","Vukic","2.32","lose"],
+["27.07","1R","Tiafoe (6)","3.66","Atmane","1.28","lose"],
+["27.07","1R","Martin","4.27","Humbert","1.22","lose"],
+["27.07","1R","Paul","1.25","Majchrzak","3.91","lose"],
+["27.07","1R","Tien (5)","1.18","Mannarino","4.83","lose"],
+["27.07","1R","Giron","1.15","Hewitt","5.36","lose"],
+["27.07","1R","Etcheverry","3.04","Nakashima","1.38","lose"],
+["27.07","1R","Damm","3.41","Shelton (2)","1.31","lose"],
+["28.07","1R","Svajda","4.13","Mensik (7)","1.22","lose"],
+["29.07","1R","Tsitsipas","2.13","De Minaur (1)","1.71","lose"],
+["29.07","R16","Vukic","3.02","Musetti (4)","1.38","lose"],
+["29.07","R16","Majchrzak","3.72","Fritz (3)","1.27","lose"],
+["29.07","R16","Mannarino","3.27","Michelsen","1.33","lose"],
+["29.07","R16","Nishikori","5.03","Jodar","1.17","lose"],
+["30.07","R16","Mensik (7)","1.62","Nakashima","2.27","lose"],
+["30.07","R16","Hewitt","7.94","De Minaur (1)","1.08","lose"],
+["30.07","R16","Atmane","1.73","Tabilo","2.10","lose"],
+["30.07","R16","Humbert","2.77","Shelton (2)","1.44","lose"],
+["31.07","QF","De Minaur (1)","1.56","Nakashima","2.40","lose"],
+["31.07","QF","Michelsen","2.98","Fritz (3)","1.39","lose"],
+["31.07","QF","Musetti (4)","2.43","Jodar","1.55","lose"],
+["31.07","QF","Shelton (2)","1.28","Tabilo","3.65","lose"],
+["01.08","SF","Nakashima","2.48","Fritz (3)","1.53","lose"],
+["01.08","SF","Tabilo","3.08","Jodar","1.36","lose"],
+["03.08","F","Jodar","2.40","Fritz (3)","1.56","win"]
+];
+
+function rawToMatches(raw){
+  return raw.map(m => ({
+    date:m[0], round:m[1],
+    loserName:m[2], loserOdd:parseFloat(m[3]),
+    winnerName:m[4], winnerOdd:parseFloat(m[5])
+  }));
+}
+
+const STORAGE_KEY = 'tenisgain_tournaments_v1';
+let tournaments = {};
+let currentTournament = DEFAULT_NAME;
+
+// Normaliza um torneio para o formato {year, matches}, migrando o formato
+// antigo (array puro de partidas, sem ano) usado antes desta versão.
+function normalizeTournament(value){
+  if(Array.isArray(value)){
+    return { year: null, tour: null, matches: value };
+  }
+  if(value && Array.isArray(value.matches)){
+    return {
+      year: (typeof value.year === 'number' ? value.year : null),
+      tour: (value.tour === 'ATP' || value.tour === 'WTA') ? value.tour : null,
+      matches: value.matches
+    };
+  }
+  return { year: null, tour: null, matches: [] };
+}
+
+function getMatches(name){
+  const t = tournaments[name];
+  return t ? t.matches : [];
+}
+
+function loadTournaments(){
+  try{
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : {};
+    tournaments = {};
+    Object.keys(parsed).forEach(name => {
+      tournaments[name] = normalizeTournament(parsed[name]);
+    });
+  }catch(e){ tournaments = {}; }
+  if(!tournaments[DEFAULT_NAME]){
+    tournaments[DEFAULT_NAME] = { year: 2026, tour: 'ATP', matches: rawToMatches(rawMatchesDefault) };
+  }
+}
+
+let suppressGhPush = false;
+
+function saveTournaments(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tournaments)); }
+  catch(e){ /* localStorage indisponível, segue só em memória */ }
+  if(!suppressGhPush) scheduleGhPush();
+}
+
+function parseDateKey(dateStr, year){
+  const parts = dateStr.split('.');
+  const day = parseInt(parts[0],10) || 0;
+  const month = parseInt(parts[1],10) || 0;
+  const y = year || 0;
+  return y*10000 + month*100 + day;
+}
+
+const COMPILED_NAMES = {
+  ALL: 'Geral Acumulado (Todos)',
+  ATP: 'Geral ATP',
+  WTA: 'Geral WTA'
+};
+
+function compileGeral(scope){
+  scope = scope || 'ALL';
+  const targetName = COMPILED_NAMES[scope] || COMPILED_NAMES.ALL;
+  const compiledNames = Object.values(COMPILED_NAMES);
+  let names = Object.keys(tournaments).filter(n => !compiledNames.includes(n));
+
+  if(scope !== 'ALL'){
+    const missingTour = names.filter(n => !tournaments[n].tour);
+    if(missingTour.length > 0){
+      alert('Estes torneios não têm o circuito (ATP/WTA) definido e por isso ficam de fora do filtro: '
+        + missingTour.join(', ')
+        + '.\n\nExclua e reimporte-os informando o circuito, ou compile "Todos" em vez disso.');
+    }
+    names = names.filter(n => tournaments[n].tour === scope);
+  }
+
+  if(names.length === 0){
+    alert('Não há torneios salvos que se encaixem nesse filtro.');
+    return;
+  }
+  const missingYear = names.filter(n => !tournaments[n].year);
+  if(missingYear.length > 0){
+    alert('Estes torneios não têm um ano definido e não podem ser ordenados corretamente: '
+      + missingYear.join(', ')
+      + '.\n\nExclua e reimporte-os informando o ano, ou edite manualmente antes de compilar.');
+    return;
+  }
+  let all = [];
+  names.forEach(n => {
+    const year = tournaments[n].year;
+    tournaments[n].matches.forEach(m => {
+      all.push(Object.assign({}, m, { _sortKey: parseDateKey(m.date, year), _year: year }));
+    });
+  });
+  all.sort((a,b) => a._sortKey - b._sortKey);
+  const merged = all.map(m => {
+    const { _sortKey, _year, ...rest } = m;
+    return rest;
+  });
+  tournaments[targetName] = { year: null, tour: scope==='ALL'?null:scope, matches: merged };
+  saveTournaments();
+  currentTournament = targetName;
+  populateSelect();
+  saveSettings();
+  render();
+}
+
+function populateSelect(){
+  const sel = document.getElementById('tournamentSelect');
+  sel.innerHTML = '';
+  Object.keys(tournaments).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    const tour = tournaments[name].tour;
+    opt.textContent = name + (tour ? ' ('+tour+')' : '');
+    if(name === currentTournament) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function parseImport(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  const parsed = [];
+  for(const line of lines){
+    let parts = line.split('\t');
+    if(parts.length<7) parts = line.split(';');
+    if(parts.length<7) parts = line.split(',');
+    parts = parts.map(p=>p.trim());
+    if(parts.length<7) throw new Error('Linha com menos de 7 campos: "'+line+'"');
+    const [date, round, nameA, oddAraw, nameB, oddBraw, vencedor] = parts;
+    const oddA = parseFloat(oddAraw.replace(',','.'));
+    const oddB = parseFloat(oddBraw.replace(',','.'));
+    if(isNaN(oddA) || isNaN(oddB)) throw new Error('Odd inválida na linha: "'+line+'"');
+    const v = vencedor.trim().toLowerCase();
+    const winnerIsA = v === 'a' || v === nameA.trim().toLowerCase();
+    const winnerIsB = v === 'b' || v === nameB.trim().toLowerCase();
+    if(!winnerIsA && !winnerIsB) throw new Error('Vencedor não reconhecido na linha: "'+line+'"');
+    if(winnerIsA){
+      parsed.push({date, round, winnerName:nameA, winnerOdd:oddA, loserName:nameB, loserOdd:oddB});
+    } else {
+      parsed.push({date, round, winnerName:nameB, winnerOdd:oddB, loserName:nameA, loserOdd:oddA});
+    }
+  }
+  if(parsed.length===0) throw new Error('Nenhuma partida reconhecida.');
+  return parsed;
+}
+
+function fmt(n){ return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function simulate(){
+  const oddMin = parseFloat(document.getElementById('oddMin').value);
+  const oddMax = parseFloat(document.getElementById('oddMax').value);
+  const useMartingale = document.getElementById('useMartingale').checked;
+  const profitMode = document.querySelector('input[name="profitMode"]:checked').value;
+  const recoveryPct = parseFloat(document.getElementById('recovery').value)/100;
+  const targetProfitFixed = parseFloat(document.getElementById('targetProfitFixed').value);
+  const baseStake = parseFloat(document.getElementById('baseStake').value);
+  const numLines = useMartingale ? Math.max(1, parseInt(document.getElementById('numLines').value) || 1) : 1;
+  const sidePick = document.querySelector('input[name="sidePick"]:checked').value;
+  const riskMitigation = document.getElementById('riskMitigation').checked;
+  const redistFrequency = Math.max(1, parseInt(document.getElementById('redistFrequency').value) || 3);
+  const stopLossEnabled = document.getElementById('stopLossEnabled').checked;
+  const stopLossMaxAttempts = parseInt(document.getElementById('stopLossMaxAttempts').value) || 0;
+  const stopLossMaxStake = parseFloat(document.getElementById('stopLossMaxStake').value) || 0;
+  const carryLossEnabled = document.getElementById('carryLossEnabled').checked;
+  const carryLossAmount = parseFloat(document.getElementById('carryLossAmount').value) || 0;
+
+  function getTargetProfit(){
+    return profitMode === 'fixed' ? targetProfitFixed : baseStake * recoveryPct;
+  }
+
+  const lines = Array.from({length:numLines}, () => ({accLoss:0, attempts:0}));
+  let carriedPerLine = 0;
+  if(carryLossEnabled && carryLossAmount>0){
+    carriedPerLine = Math.round((carryLossAmount/numLines)*100)/100;
+    lines.forEach(l=>{ l.accLoss = carriedPerLine; });
+  }
+  let bankroll = 0;
+  let wins=0, losses=0, qualifiedCount=0;
+  let currentStreak=0, maxStreak=0, maxAttempts=0, maxStake=0, redistCount=0, stopLossCount=0;
+
+  const rows = [];
+  const matches = getMatches(currentTournament);
+
+  matches.forEach(m => {
+    const candA = { name:m.winnerName, odd:m.winnerOdd, won:true };
+    const candB = { name:m.loserName, odd:m.loserOdd, won:false };
+    const inA = candA.odd >= oddMin && candA.odd <= oddMax;
+    const inB = candB.odd >= oddMin && candB.odd <= oddMax;
+
+    let chosen = null;
+    if(inA && inB){
+      chosen = sidePick === 'lower'
+        ? (candA.odd <= candB.odd ? candA : candB)
+        : (candA.odd >= candB.odd ? candA : candB);
+    } else if(inA){ chosen = candA; }
+    else if(inB){ chosen = candB; }
+
+    if(!chosen){
+      rows.push({date:m.date, round:m.round, name:'-', odd:'-', lineNum:'-', attempt:'-', stake:'-', result:'fora do filtro', bankroll:bankroll, out:true});
+      return;
+    }
+
+    const lineIndex = qualifiedCount % numLines;
+    const lineState = lines[lineIndex];
+    qualifiedCount++;
+
+    const attempt = lineState.attempts + 1;
+    let stake;
+    if(lineState.accLoss <= 0){
+      stake = baseStake;
+    } else {
+      const targetProfit = getTargetProfit();
+      stake = (lineState.accLoss + targetProfit) / (chosen.odd - 1);
+    }
+    stake = Math.round(stake*100)/100;
+    if(stake>maxStake) maxStake=stake;
+
+    let resultLabel, res, redistNote = '';
+    if(chosen.won){
+      const profit = Math.round((stake*(chosen.odd-1))*100)/100;
+      bankroll = Math.round((bankroll + profit)*100)/100;
+      resultLabel = 'GANHOU';
+      res='win';
+      wins++;
+      currentStreak=0;
+      lineState.accLoss = 0;
+      lineState.attempts = 0;
+    } else {
+      bankroll = Math.round((bankroll - stake)*100)/100;
+      lineState.accLoss = Math.round((lineState.accLoss + stake)*100)/100;
+      lineState.attempts = attempt;
+      resultLabel = 'PERDEU';
+      res='lose';
+      losses++;
+      currentStreak++;
+      if(currentStreak>maxStreak) maxStreak=currentStreak;
+      if(attempt>maxAttempts) maxAttempts=attempt;
+
+      const stopLossHit = stopLossEnabled && (
+        (stopLossMaxAttempts>0 && attempt>=stopLossMaxAttempts) ||
+        (stopLossMaxStake>0 && stake>=stopLossMaxStake)
+      );
+
+      if(stopLossHit){
+        stopLossCount++;
+        redistNote = ' • stop-loss acionado, linha reiniciada (prejuízo assumido)';
+        lineState.accLoss = 0;
+        lineState.attempts = 0;
+      } else if(riskMitigation && numLines>1 && attempt%redistFrequency===0){
+        const redistTotal = Math.round(lineState.accLoss*0.5*100)/100;
+        const otherIdx = lines.map((_,i)=>i).filter(i=>i!==lineIndex);
+        const perLine = Math.round((redistTotal/otherIdx.length)*100)/100;
+        otherIdx.forEach(i=>{
+          lines[i].accLoss = Math.round((lines[i].accLoss+perLine)*100)/100;
+        });
+        lineState.accLoss = Math.round((lineState.accLoss-redistTotal)*100)/100;
+        redistCount++;
+        redistNote = ' • redistribuiu R$ '+fmt(redistTotal)+' entre as demais linhas';
+      }
+    }
+
+    rows.push({
+      date:m.date, round:m.round, name:chosen.name, odd:chosen.odd.toFixed(2),
+      lineNum: lineIndex+1, attempt: attempt,
+      stake: fmt(stake), result: resultLabel+redistNote, bankroll: bankroll, res: res
+    });
+  });
+
+  return {rows, wins, losses, qualifiedCount, bankroll, maxStreak, maxAttempts, maxStake, redistCount, stopLossCount, numLines, carriedPerLine, carryLossAmount};
+}
+
+function render(){
+  const r = simulate();
+  const body = document.getElementById('body');
+  body.innerHTML = '';
+  r.rows.forEach(row => {
+    const tr = document.createElement('tr');
+    if(row.out){ tr.className='out'; }
+    else if(row.res==='win'){ tr.className='win'; }
+    else { tr.className='lose'; }
+    tr.innerHTML = `
+      <td class="left">${row.date} <span style="color:var(--muted);font-size:11px;">${row.round}</span></td>
+      <td class="left">${row.name}</td>
+      <td>${row.odd}</td>
+      <td>${row.out ? '-' : '<span class="badge-line">Linha '+row.lineNum+'</span>'}</td>
+      <td>${row.out ? '-' : row.attempt}</td>
+      <td>${row.stake}</td>
+      <td class="res">${row.result}</td>
+      <td>${row.out ? '-' : fmt(row.bankroll)}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  const winRate = r.qualifiedCount ? Math.round((r.wins/r.qualifiedCount)*1000)/10 : 0;
+  const stats = document.getElementById('stats');
+  stats.innerHTML = `
+    <div class="stat"><div class="label">Saldo final</div><div class="value" style="color:${r.bankroll>=0?'var(--win)':'var(--lose)'}">R$ ${fmt(r.bankroll)}</div></div>
+    <div class="stat"><div class="label">Jogos elegíveis</div><div class="value">${r.qualifiedCount}</div></div>
+    <div class="stat"><div class="label">Taxa de acerto (por entrada)</div><div class="value">${winRate}%</div></div>
+    <div class="stat"><div class="label">Maior nº de tentativas em uma linha</div><div class="value">${r.maxAttempts||1}</div></div>
+    <div class="stat"><div class="label">Maior aposta utilizada</div><div class="value">R$ ${fmt(r.maxStake)}</div></div>
+    <div class="stat"><div class="label">Redistribuições de risco realizadas</div><div class="value">${r.redistCount}</div></div>
+    <div class="stat"><div class="label">Stop-loss acionado</div><div class="value">${r.stopLossCount}</div></div>
+    <div class="stat"><div class="label">Maior sequência de perdas seguidas</div><div class="value">${r.maxStreak}</div></div>
+    ${r.carryLossAmount>0 ? `<div class="stat"><div class="label">Prejuízo herdado distribuído</div><div class="value">R$ ${fmt(r.carryLossAmount)} <span style="font-size:12px;color:var(--muted);">(R$ ${fmt(r.carriedPerLine)}/linha)</span></div></div>` : ''}
+  `;
+}
+
+const EXAMPLE_TEXT = `27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+28.07;1R;Svajda;4.13;Mensik (7);1.22;Mensik (7)
+31.07;QF;De Minaur (1);1.56;Nakashima;2.40;Nakashima
+03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar`;
+
+document.getElementById('compileGeralBtn').addEventListener('click', ()=>{
+  compileGeral(document.getElementById('compileScope').value);
+});
+
+document.getElementById('runBtn').addEventListener('click', render);
+
+const SETTINGS_KEY = 'tenisgain_settings_v1';
+
+function saveSettings(){
+  try{
+    const settings = {
+      oddMin: document.getElementById('oddMin').value,
+      oddMax: document.getElementById('oddMax').value,
+      baseStake: document.getElementById('baseStake').value,
+      useMartingale: document.getElementById('useMartingale').checked,
+      riskMitigation: document.getElementById('riskMitigation').checked,
+      redistFrequency: document.getElementById('redistFrequency').value,
+      stopLossEnabled: document.getElementById('stopLossEnabled').checked,
+      stopLossMaxAttempts: document.getElementById('stopLossMaxAttempts').value,
+      stopLossMaxStake: document.getElementById('stopLossMaxStake').value,
+      carryLossEnabled: document.getElementById('carryLossEnabled').checked,
+      carryLossAmount: document.getElementById('carryLossAmount').value,
+      numLines: document.getElementById('numLines').value,
+      profitMode: document.querySelector('input[name="profitMode"]:checked').value,
+      recovery: document.getElementById('recovery').value,
+      targetProfitFixed: document.getElementById('targetProfitFixed').value,
+      sidePick: document.querySelector('input[name="sidePick"]:checked').value,
+      currentTournament: currentTournament
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }catch(e){ /* localStorage indisponível, segue só em memória */ }
+  if(!suppressGhPush) scheduleGhPush();
+}
+
+function loadSettings(){
+  try{
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if(!stored) return;
+    const s = JSON.parse(stored);
+    if(s.oddMin!=null) document.getElementById('oddMin').value = s.oddMin;
+    if(s.oddMax!=null) document.getElementById('oddMax').value = s.oddMax;
+    if(s.baseStake!=null) document.getElementById('baseStake').value = s.baseStake;
+    if(s.useMartingale!=null) document.getElementById('useMartingale').checked = s.useMartingale;
+    if(s.riskMitigation!=null) document.getElementById('riskMitigation').checked = s.riskMitigation;
+    if(s.redistFrequency!=null) document.getElementById('redistFrequency').value = s.redistFrequency;
+    if(s.stopLossEnabled!=null) document.getElementById('stopLossEnabled').checked = s.stopLossEnabled;
+    if(s.stopLossMaxAttempts!=null) document.getElementById('stopLossMaxAttempts').value = s.stopLossMaxAttempts;
+    if(s.stopLossMaxStake!=null) document.getElementById('stopLossMaxStake').value = s.stopLossMaxStake;
+    if(s.carryLossEnabled!=null) document.getElementById('carryLossEnabled').checked = s.carryLossEnabled;
+    if(s.carryLossAmount!=null) document.getElementById('carryLossAmount').value = s.carryLossAmount;
+    if(s.numLines!=null) document.getElementById('numLines').value = s.numLines;
+    if(s.recovery!=null) document.getElementById('recovery').value = s.recovery;
+    if(s.targetProfitFixed!=null) document.getElementById('targetProfitFixed').value = s.targetProfitFixed;
+    if(s.profitMode){
+      const el = document.querySelector('input[name="profitMode"][value="'+s.profitMode+'"]');
+      if(el) el.checked = true;
+    }
+    if(s.sidePick){
+      const el = document.querySelector('input[name="sidePick"][value="'+s.sidePick+'"]');
+      if(el) el.checked = true;
+    }
+    if(s.currentTournament && tournaments[s.currentTournament]){
+      currentTournament = s.currentTournament;
+    }
+  }catch(e){ /* ignora configuração corrompida */ }
+}
+
+function toggleMartingaleFields(){
+  const on = document.getElementById('useMartingale').checked;
+  document.getElementById('numLinesField').style.display = on ? '' : 'none';
+  document.getElementById('profitModeField').style.display = on ? '' : 'none';
+  document.getElementById('riskMitigationField').style.display = on ? '' : 'none';
+  document.getElementById('stopLossField').style.display = on ? '' : 'none';
+  document.getElementById('carryLossField').style.display = on ? '' : 'none';
+  toggleProfitModeFields();
+  toggleRiskFields();
+  toggleStopLossFields();
+  toggleCarryLossFields();
+}
+function toggleProfitModeFields(){
+  const on = document.getElementById('useMartingale').checked;
+  const mode = document.querySelector('input[name="profitMode"]:checked').value;
+  document.getElementById('recoveryField').style.display = (on && mode==='percent') ? '' : 'none';
+  document.getElementById('targetProfitField').style.display = (on && mode==='fixed') ? '' : 'none';
+}
+function toggleRiskFields(){
+  const on = document.getElementById('useMartingale').checked && document.getElementById('riskMitigation').checked;
+  document.getElementById('redistFrequencyField').style.display = on ? '' : 'none';
+}
+function toggleStopLossFields(){
+  const on = document.getElementById('useMartingale').checked && document.getElementById('stopLossEnabled').checked;
+  document.getElementById('stopLossAttemptsField').style.display = on ? '' : 'none';
+  document.getElementById('stopLossStakeField').style.display = on ? '' : 'none';
+}
+function toggleCarryLossFields(){
+  const on = document.getElementById('useMartingale').checked && document.getElementById('carryLossEnabled').checked;
+  document.getElementById('carryLossAmountField').style.display = on ? '' : 'none';
+}
+document.getElementById('useMartingale').addEventListener('change', ()=>{
+  toggleMartingaleFields();
+  saveSettings();
+  render();
+});
+document.getElementById('riskMitigation').addEventListener('change', ()=>{
+  toggleRiskFields();
+  saveSettings();
+  render();
+});
+document.getElementById('carryLossEnabled').addEventListener('change', ()=>{
+  toggleCarryLossFields();
+  saveSettings();
+  render();
+});
+document.getElementById('stopLossEnabled').addEventListener('change', ()=>{
+  toggleStopLossFields();
+  saveSettings();
+  render();
+});
+document.querySelectorAll('input[name="profitMode"]').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    toggleProfitModeFields();
+    saveSettings();
+    render();
+  });
+});
+['oddMin','oddMax','baseStake','numLines','recovery','targetProfitFixed','redistFrequency','stopLossMaxAttempts','stopLossMaxStake','carryLossAmount'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    saveSettings();
+    render();
+  });
+});
+document.querySelectorAll('input[name="sidePick"]').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    saveSettings();
+    render();
+  });
+});
+toggleMartingaleFields();
+
+document.getElementById('tournamentSelect').addEventListener('change', (e)=>{
+  currentTournament = e.target.value;
+  saveSettings();
+  render();
+});
+
+document.getElementById('deleteTournamentBtn').addEventListener('click', ()=>{
+  if(Object.keys(tournaments).length<=1){
+    alert('Precisa existir pelo menos um torneio.');
+    return;
+  }
+  if(!confirm('Excluir o torneio "'+currentTournament+'"? Essa ação não pode ser desfeita.')) return;
+  delete tournaments[currentTournament];
+  saveTournaments();
+  currentTournament = Object.keys(tournaments)[0];
+  populateSelect();
+  saveSettings();
+  render();
+});
+
+document.getElementById('loadExampleBtn').addEventListener('click', ()=>{
+  document.getElementById('importText').value = EXAMPLE_TEXT;
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  const errEl = document.getElementById('importError');
+  errEl.style.display = 'none';
+  const name = document.getElementById('newTournamentName').value.trim();
+  const yearVal = parseInt(document.getElementById('newTournamentYear').value, 10);
+  const tourVal = document.querySelector('input[name="newTournamentTour"]:checked').value;
+  const text = document.getElementById('importText').value;
+  if(!name){
+    errEl.textContent = 'Informe um nome para o torneio.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!yearVal){
+    errEl.textContent = 'Informe o ano do torneio (necessário para compilar o histórico geral em ordem cronológica).';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!text.trim()){
+    errEl.textContent = 'Cole os dados das partidas antes de salvar.';
+    errEl.style.display = 'block';
+    return;
+  }
+  try{
+    const parsedMatches = parseImport(text);
+    tournaments[name] = { year: yearVal, tour: tourVal, matches: parsedMatches };
+    saveTournaments();
+    currentTournament = name;
+    populateSelect();
+    document.getElementById('newTournamentName').value = '';
+    document.getElementById('importText').value = '';
+    saveSettings();
+    render();
+  }catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+});
+
+const GH_CONFIG_KEY = 'tenisgain_gh_config_v1';
+let ghPushTimer = null;
+
+function getGhConfig(){
+  try{
+    const stored = localStorage.getItem(GH_CONFIG_KEY);
+    return stored ? JSON.parse(stored) : null;
+  }catch(e){ return null; }
+}
+
+function setGhStatus(text){
+  const el = document.getElementById('ghStatus');
+  if(el) el.textContent = text;
+}
+
+function fillGhForm(cfg){
+  if(!cfg) return;
+  document.getElementById('ghToken').value = cfg.token || '';
+  document.getElementById('ghGistId').value = cfg.gistId || '';
+  document.getElementById('ghAutoSync').checked = !!cfg.autoSync;
+}
+
+function readGhForm(){
+  return {
+    token: document.getElementById('ghToken').value.trim(),
+    gistId: document.getElementById('ghGistId').value.trim(),
+    autoSync: document.getElementById('ghAutoSync').checked
+  };
+}
+
+document.getElementById('ghSaveConfigBtn').addEventListener('click', ()=>{
+  const errEl = document.getElementById('ghError');
+  errEl.style.display = 'none';
+  const cfg = readGhForm();
+  if(!cfg.token){
+    errEl.textContent = 'Cole o token do GitHub primeiro.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
+  setGhStatus('Configuração salva.' + (cfg.gistId ? ' Use "Enviar" ou "Baixar".' : ' Clique em "Criar Gist" pra começar.'));
+});
+
+function buildPayload(){
+  let settings = {};
+  try{ settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }catch(e){}
+  return { tournaments, settings, updatedAt: Date.now() };
+}
+
+async function ghRequest(url, options){
+  const res = await fetch(url, options);
+  if(!res.ok){
+    const body = await res.text().catch(()=> '');
+    throw new Error('GitHub respondeu ' + res.status + (body ? ': ' + body.slice(0,200) : ''));
+  }
+  return res.json();
+}
+
+document.getElementById('ghCreateBtn').addEventListener('click', async ()=>{
+  const cfg = readGhForm();
+  if(!cfg.token){ setGhStatus('Cole o token do GitHub primeiro.'); return; }
+  setGhStatus('Criando Gist...');
+  try{
+    const payload = buildPayload();
+    const data = await ghRequest('https://api.github.com/gists', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'token ' + cfg.token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: 'TenisGain sync data',
+        public: false,
+        files: { 'tenisgain-sync.json': { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
+    cfg.gistId = data.id;
+    localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
+    document.getElementById('ghGistId').value = data.id;
+    setGhStatus('Gist criado! ID: ' + data.id + ' — copie esse ID e o token pros outros dispositivos.');
+  }catch(e){
+    setGhStatus('Erro ao criar Gist: ' + e.message);
+  }
+});
+
+document.getElementById('ghPushBtn').addEventListener('click', ()=> ghPush(true));
+document.getElementById('ghPullBtn').addEventListener('click', ()=> ghPull(true));
+
+async function ghPush(manual){
+  const cfg = getGhConfig();
+  if(!cfg || !cfg.token || !cfg.gistId){
+    if(manual) setGhStatus('Configure o token e o ID do Gist primeiro (ou crie um novo).');
+    return;
+  }
+  try{
+    const payload = buildPayload();
+    await ghRequest('https://api.github.com/gists/' + cfg.gistId, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'token ' + cfg.token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { 'tenisgain-sync.json': { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
+    setGhStatus('Enviado às ' + new Date().toLocaleTimeString('pt-BR') + '.');
+  }catch(e){
+    setGhStatus('Erro ao enviar: ' + e.message);
+  }
+}
+
+async function ghPull(manual){
+  const cfg = getGhConfig();
+  if(!cfg || !cfg.token || !cfg.gistId){
+    if(manual) setGhStatus('Configure o token e o ID do Gist primeiro.');
+    return;
+  }
+  try{
+    const data = await ghRequest('https://api.github.com/gists/' + cfg.gistId, {
+      headers: {
+        'Authorization': 'token ' + cfg.token,
+        'Accept': 'application/vnd.github+json'
+      }
+    });
+    const file = data.files && data.files['tenisgain-sync.json'];
+    if(!file){
+      setGhStatus('Esse Gist não tem dados do simulador ainda. Use "Enviar" primeiro.');
+      return;
+    }
+    const parsed = JSON.parse(file.content);
+    const normalized = {};
+    Object.keys(parsed.tournaments || {}).forEach(name=>{
+      normalized[name] = normalizeTournament(parsed.tournaments[name]);
+    });
+    tournaments = normalized;
+    suppressGhPush = true;
+    saveTournaments();
+    if(parsed.settings){
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed.settings));
+    }
+    suppressGhPush = false;
+    loadSettings();
+    populateSelect();
+    toggleMartingaleFields();
+    render();
+    setGhStatus('Dados baixados (atualizados em ' + (parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleString('pt-BR') : '—') + ').');
+  }catch(e){
+    setGhStatus('Erro ao baixar: ' + e.message);
+  }
+}
+
+function scheduleGhPush(){
+  const cfg = getGhConfig();
+  if(!cfg || !cfg.autoSync || !cfg.gistId) return;
+  clearTimeout(ghPushTimer);
+  ghPushTimer = setTimeout(()=> ghPush(false), 1500);
+}
+
+const _ghCfgOnLoad = getGhConfig();
+if(_ghCfgOnLoad){
+  fillGhForm(_ghCfgOnLoad);
+  setGhStatus('Configuração carregada.');
+  if(_ghCfgOnLoad.autoSync && _ghCfgOnLoad.gistId){
+    setGhStatus('Sincronizando automaticamente...');
+    ghPull(false);
+  }
+}
+
+loadTournaments();
+populateSelect();
+loadSettings();
+populateSelect();
+toggleMartingaleFields();
+render();
+</script>
+</body>
+</html>
