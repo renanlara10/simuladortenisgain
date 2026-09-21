@@ -126,10 +126,11 @@
     cole o mesmo token + o ID do Gist gerado, e clique em "Baixar".
   </p>
   <div class="import-row">
-    <input type="password" id="ghToken" placeholder="Token do GitHub (escopo gist)">
+    <input type="password" id="ghToken" placeholder="Token do GitHub (escopo gist)" autocomplete="off" name="tenisgain-gh-token-nofill">
+    <button type="button" class="secondary" id="ghTokenToggle" style="padding:7px 12px;">👁 Mostrar</button>
   </div>
   <div class="import-row">
-    <input type="text" id="ghGistId" placeholder="ID do Gist (deixe em branco pra criar um novo)">
+    <input type="text" id="ghGistId" placeholder="ID do Gist (deixe em branco pra criar um novo)" autocomplete="off" name="tenisgain-gist-id-nofill">
   </div>
   <div class="import-row">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
@@ -859,6 +860,18 @@ function readGhForm(){
     autoSync: document.getElementById('ghAutoSync').checked
   };
 }
+
+document.getElementById('ghTokenToggle').addEventListener('click', ()=>{
+  const field = document.getElementById('ghToken');
+  const btn = document.getElementById('ghTokenToggle');
+  if(field.type === 'password'){
+    field.type = 'text';
+    btn.textContent = '🙈 Ocultar';
+  } else {
+    field.type = 'password';
+    btn.textContent = '👁 Mostrar';
+  }
+});
 
 document.getElementById('ghSaveConfigBtn').addEventListener('click', ()=>{
   const errEl = document.getElementById('ghError');
