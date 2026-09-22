@@ -266,6 +266,7 @@
 <thead>
 <tr>
   <th class="left">Data</th>
+  <th class="left">Competição</th>
   <th class="left">Jogador (apostado)</th>
   <th>Odd</th>
   <th>Linha</th>
@@ -414,7 +415,7 @@ function compileGeral(scope){
   names.forEach(n => {
     const year = tournaments[n].year;
     tournaments[n].matches.forEach(m => {
-      all.push(Object.assign({}, m, { _sortKey: parseDateKey(m.date, year), _year: year }));
+      all.push(Object.assign({}, m, { _sortKey: parseDateKey(m.date, year), _year: year, tournament: m.tournament || n }));
     });
   });
   all.sort((a,b) => a._sortKey - b._sortKey);
@@ -526,7 +527,7 @@ function simulate(){
     else if(inB){ chosen = candB; }
 
     if(!chosen){
-      rows.push({date:m.date, round:m.round, name:'-', odd:'-', lineNum:'-', attempt:'-', stake:'-', result:'fora do filtro', bankroll:bankroll, out:true});
+      rows.push({date:m.date, round:m.round, tournament:m.tournament||currentTournament, name:'-', odd:'-', lineNum:'-', attempt:'-', stake:'-', result:'fora do filtro', bankroll:bankroll, out:true});
       return;
     }
 
@@ -590,7 +591,7 @@ function simulate(){
     }
 
     rows.push({
-      date:m.date, round:m.round, name:chosen.name, odd:chosen.odd.toFixed(2),
+      date:m.date, round:m.round, tournament:m.tournament||currentTournament, name:chosen.name, odd:chosen.odd.toFixed(2),
       lineNum: lineIndex+1, attempt: attempt,
       stake: fmt(stake), result: resultLabel+redistNote, bankroll: bankroll, res: res
     });
@@ -610,6 +611,7 @@ function render(){
     else { tr.className='lose'; }
     tr.innerHTML = `
       <td class="left">${row.date} <span style="color:var(--muted);font-size:11px;">${row.round}</span></td>
+      <td class="left" style="font-size:12px;color:var(--muted);">${row.tournament||''}</td>
       <td class="left">${row.name}</td>
       <td>${row.odd}</td>
       <td>${row.out ? '-' : '<span class="badge-line">Linha '+row.lineNum+'</span>'}</td>
