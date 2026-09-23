@@ -97,6 +97,44 @@
     background:var(--bg);color:var(--text);font-size:14px;min-width:220px;
   }
   .top-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+
+  .param-strip{
+    display:flex;flex-wrap:wrap;gap:2px;
+    background:var(--line-bg);border-radius:10px;overflow:hidden;
+    margin-bottom:10px;border:0.5px solid var(--border);
+  }
+  .stat-param{
+    flex:1 1 100px;min-width:96px;
+    background:var(--card);padding:10px 8px 8px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    text-align:center;
+  }
+  .stat-param input{
+    width:100%;border:none;background:transparent;
+    font-size:19px;font-weight:700;text-align:center;
+    padding:0;font-family:ui-monospace,Consolas,monospace;
+  }
+  .stat-param input:focus{outline:none;}
+  .stat-param .p-label{
+    font-size:9.5px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:0.02em;margin-top:4px;line-height:1.25;min-height:22px;
+  }
+  .stat-param .p-edit{
+    font-size:9px;color:var(--win);margin-top:3px;opacity:0.75;
+  }
+  .toggle-strip{
+    display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;
+  }
+  .toggle-chip{
+    background:var(--card);border:0.5px solid var(--border);border-radius:8px;
+    padding:7px 10px;font-size:12.5px;display:flex;align-items:center;gap:6px;
+  }
+  .toggle-chip input{margin:0;}
+  .toggle-chip.sub{background:var(--line-bg);}
+  h2.section-title{
+    font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;
+    margin:0 0 8px;font-weight:600;
+  }
 </style>
 </head>
 <body>
@@ -104,10 +142,98 @@
 <h1>Simulador TenisGain</h1>
 <p class="sub">Os jogos elegíveis são distribuídos em rodízio entre N linhas independentes (jogo 1 → linha 1, jogo 2 → linha 2, ...). Cada linha recupera seu próprio prejuízo indefinidamente até ganhar, sem afetar as demais.</p>
 
-<div class="top-row">
+<h2 class="section-title">Parâmetros da simulação</h2>
+<div class="param-strip">
+  <div class="stat-param">
+    <input type="number" id="oddMin" value="1.30" step="0.01" min="1.01" style="color:#4cd97b;">
+    <div class="p-label">Odd mínima</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param">
+    <input type="number" id="oddMax" value="1.70" step="0.01" min="1.01" style="color:#4cd97b;">
+    <div class="p-label">Odd máxima</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param">
+    <input type="number" id="baseStake" value="10" step="1" min="1" style="color:#ffffff;">
+    <div class="p-label">Aposta inicial (R$)</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="numLinesField">
+    <input type="number" id="numLines" value="3" step="1" min="1" max="10" style="color:#3ecbe0;">
+    <div class="p-label">Nº de linhas</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="recoveryField">
+    <input type="number" id="recovery" value="10" step="1" min="0" style="color:#ffb020;">
+    <div class="p-label">Recuperação por linha (%)</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="targetProfitField" style="display:none;">
+    <input type="number" id="targetProfitFixed" value="10" step="1" min="0" style="color:#ffb020;">
+    <div class="p-label">Lucro alvo fixo (R$)</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="redistFrequencyField">
+    <input type="number" id="redistFrequency" value="3" step="1" min="1" max="10" style="color:#ff5c5c;">
+    <div class="p-label">Reds p/ redistribuir</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="redistPctField">
+    <input type="number" id="redistPct" value="50" step="5" min="1" max="100" style="color:#ff5c5c;">
+    <div class="p-label">% redistribuído</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="stopLossAttemptsField">
+    <input type="number" id="stopLossMaxAttempts" value="6" step="1" min="0" style="color:#ff9d4d;">
+    <div class="p-label">Teto tentativas/linha</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="stopLossStakeField">
+    <input type="number" id="stopLossMaxStake" value="0" step="10" min="0" style="color:#ff9d4d;">
+    <div class="p-label">Teto aposta (R$)</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="carryLossAmountField">
+    <input type="number" id="carryLossAmount" value="0" step="10" min="0" style="color:#c77dff;">
+    <div class="p-label">Prejuízo herdado (R$)</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+  <div class="stat-param" id="carryLossPctField">
+    <input type="number" id="carryLossPct" value="100" step="5" min="0" max="100" style="color:#c77dff;">
+    <div class="p-label">% do prejuízo herdado</div>
+    <div class="p-edit">✎ editável</div>
+  </div>
+</div>
+
+<div class="toggle-strip" id="profitModeField">
+  <span class="toggle-chip" style="background:transparent;border:none;padding:7px 0;color:var(--muted);">Lucro alvo:</span>
+  <label class="toggle-chip"><input type="radio" name="profitMode" value="percent" checked> % da aposta</label>
+  <label class="toggle-chip"><input type="radio" name="profitMode" value="fixed"> Valor fixo</label>
+</div>
+
+<div class="toggle-strip">
+  <label class="toggle-chip"><input type="checkbox" id="useMartingale" checked> Usar martingale</label>
+  <label class="toggle-chip"><input type="checkbox" id="riskMitigation"> Mitigar risco (redistribuir)</label>
+  <label class="toggle-chip"><input type="checkbox" id="stopLossEnabled"> Stop-loss por linha</label>
+  <label class="toggle-chip"><input type="checkbox" id="carryLossEnabled"> Herdar prejuízo anterior</label>
+</div>
+
+<div class="toggle-strip">
+  <span class="toggle-chip" style="background:transparent;border:none;padding:7px 0;color:var(--muted);">Odds empatadas, entrar em:</span>
+  <label class="toggle-chip"><input type="radio" name="sidePick" value="lower" checked> Favorito</label>
+  <label class="toggle-chip"><input type="radio" name="sidePick" value="higher"> Azarão</label>
+</div>
+
+<button id="runBtn">Simular</button>
+
+<div class="stats" id="stats" style="margin-top:16px;"></div>
+
+<div class="top-row" style="margin-top:8px;">
   <label style="font-size:12px;color:var(--muted);">Torneio:</label>
   <select id="tournamentSelect"></select>
   <button class="secondary" id="deleteTournamentBtn">Excluir torneio</button>
+  <button class="secondary" id="deleteAllBtn" style="color:var(--lose);">🗑 Apagar todos os torneios</button>
   <select id="compileScope" style="padding:7px 8px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">
     <option value="ALL">Todos</option>
     <option value="ATP">Somente ATP</option>
@@ -150,7 +276,8 @@
 <details class="import-card">
   <summary>Importar novo torneio</summary>
   <p class="hint">Cole uma linha por partida, na ordem cronológica (mais antiga primeiro). Campos separados por TAB, ponto e vírgula ou vírgula:<br>
-  <strong>Data; Fase; Jogador A; Odd A; Jogador B; Odd B; Vencedor (A, B ou o nome do vencedor)</strong></p>
+  <strong>Data [horário opcional]; Fase; Jogador A; Odd A; Jogador B; Odd B; Vencedor (A, B ou o nome do vencedor)</strong><br>
+  <span style="color:var(--muted);">Inclua o horário junto à data (ex: "05.01 09:30") sempre que possível — isso é essencial pra ordenar corretamente jogos de torneios diferentes que acontecem no mesmo dia, ao compilar o histórico geral.</span></p>
   <div class="import-row">
     <input type="text" id="newTournamentName" placeholder="Nome do torneio (ex: Cincinnati 2026)">
     <input type="number" id="newTournamentYear" placeholder="Ano" style="max-width:100px;" value="2026">
@@ -160,106 +287,15 @@
     <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="radio" name="newTournamentTour" value="ATP" checked> ATP</label>
     <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="radio" name="newTournamentTour" value="WTA"> WTA</label>
   </div>
-  <textarea id="importText" placeholder="27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
-27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
-03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar"></textarea>
+  <textarea id="importText" placeholder="27.07 14:10;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07 15:30;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+03.08 15:40;F;Jodar;2.40;Fritz (3);1.56;Jodar"></textarea>
   <div class="error" id="importError"></div>
   <div class="import-row">
     <button id="importBtn">Salvar torneio</button>
     <button class="secondary" id="loadExampleBtn">Carregar exemplo</button>
   </div>
 </details>
-
-<div class="controls">
-  <div class="field">
-    <label>Odd mínima</label>
-    <input type="number" id="oddMin" value="1.30" step="0.01" min="1.01">
-  </div>
-  <div class="field">
-    <label>Odd máxima</label>
-    <input type="number" id="oddMax" value="1.70" step="0.01" min="1.01">
-  </div>
-  <div class="field">
-    <label>Aposta inicial (R$)</label>
-    <input type="number" id="baseStake" value="10" step="1" min="1">
-  </div>
-  <div class="field side-choice" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
-    <div class="radio-row" style="height:auto;">
-      <label><input type="checkbox" id="useMartingale" checked> Usar martingale (dividir jogos em linhas paralelas com recuperação própria)</label>
-    </div>
-  </div>
-  <div class="field" id="numLinesField">
-    <label>Número de linhas (sistemas paralelos)</label>
-    <input type="number" id="numLines" value="3" step="1" min="1" max="10">
-  </div>
-  <div class="field side-choice" id="carryLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
-    <div class="radio-row" style="height:auto;">
-      <label><input type="checkbox" id="carryLossEnabled"> Iniciar já com prejuízo de torneio anterior, distribuído entre as linhas</label>
-    </div>
-  </div>
-  <div class="field" id="carryLossAmountField">
-    <label>Valor total do prejuízo (R$)</label>
-    <input type="number" id="carryLossAmount" value="0" step="10" min="0">
-  </div>
-  <div class="field" id="carryLossPctField">
-    <label>% desse valor a distribuir entre as linhas</label>
-    <input type="number" id="carryLossPct" value="100" step="5" min="0" max="100">
-  </div>
-  <div class="field side-choice" id="profitModeField" style="grid-column:1 / -1;">
-    <label>Como definir o lucro alvo de cada recuperação?</label>
-    <div class="radio-row">
-      <label><input type="radio" name="profitMode" value="percent" checked> % da aposta inicial</label>
-      <label><input type="radio" name="profitMode" value="fixed"> Valor fixo em R$</label>
-    </div>
-  </div>
-  <div class="field" id="recoveryField">
-    <label>Recuperação do prejuízo por linha (%)</label>
-    <input type="number" id="recovery" value="10" step="1" min="0">
-  </div>
-  <div class="field" id="targetProfitField" style="display:none;">
-    <label>Lucro alvo por recuperação (R$)</label>
-    <input type="number" id="targetProfitFixed" value="10" step="1" min="0">
-  </div>
-  <div class="field side-choice" id="riskMitigationField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
-    <div class="radio-row" style="height:auto;">
-      <label><input type="checkbox" id="riskMitigation"> Mitigar risco: redistribuir o prejuízo da linha entre as demais</label>
-    </div>
-  </div>
-  <div class="field" id="redistFrequencyField">
-    <label>A cada quantos reds seguidos na linha, redistribuir?</label>
-    <input type="number" id="redistFrequency" value="3" step="1" min="1" max="10">
-  </div>
-  <div class="field" id="redistPctField">
-    <label>% do prejuízo da linha a redistribuir</label>
-    <input type="number" id="redistPct" value="50" step="5" min="1" max="100">
-  </div>
-
-  <div class="field side-choice" id="stopLossField" style="grid-column:1 / -1;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px;">
-    <div class="radio-row" style="height:auto;">
-      <label><input type="checkbox" id="stopLossEnabled"> Stop-loss por linha: assumir a perda e reiniciar a linha ao atingir um teto</label>
-    </div>
-  </div>
-  <div class="field" id="stopLossAttemptsField">
-    <label>Teto de tentativas seguidas por linha (0 = sem teto)</label>
-    <input type="number" id="stopLossMaxAttempts" value="6" step="1" min="0">
-  </div>
-  <div class="field" id="stopLossStakeField">
-    <label>Teto de aposta por entrada, em R$ (0 = sem teto)</label>
-    <input type="number" id="stopLossMaxStake" value="0" step="10" min="0">
-  </div>
-
-  <div class="field side-choice">
-    <label>Se as duas odds do jogo estiverem dentro da faixa, entrar em:</label>
-    <div class="radio-row">
-      <label><input type="radio" name="sidePick" value="lower" checked> Menor odd (favorito)</label>
-      <label><input type="radio" name="sidePick" value="higher"> Maior odd (azarão)</label>
-    </div>
-  </div>
-</div>
-
-<button id="runBtn">Simular</button>
-
-<div class="stats" id="stats" style="margin-top:16px;"></div>
 
 <div class="table-wrap">
 <table>
@@ -371,11 +407,20 @@ function saveTournaments(){
 }
 
 function parseDateKey(dateStr, year){
-  const parts = dateStr.split('.');
+  const trimmed = (dateStr || '').trim();
+  const [datePart, timePart] = trimmed.split(/\s+/);
+  const parts = (datePart || '').split('.');
   const day = parseInt(parts[0],10) || 0;
   const month = parseInt(parts[1],10) || 0;
   const y = year || 0;
-  return y*10000 + month*100 + day;
+  let minutes = 0;
+  if(timePart){
+    const t = timePart.split(':');
+    const hh = parseInt(t[0],10) || 0;
+    const mm = parseInt(t[1],10) || 0;
+    minutes = hh*60 + mm;
+  }
+  return y*100000000 + month*1000000 + day*10000 + minutes;
 }
 
 const COMPILED_NAMES = {
@@ -638,11 +683,11 @@ function render(){
   `;
 }
 
-const EXAMPLE_TEXT = `27.07;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
-27.07;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
-28.07;1R;Svajda;4.13;Mensik (7);1.22;Mensik (7)
-31.07;QF;De Minaur (1);1.56;Nakashima;2.40;Nakashima
-03.08;F;Jodar;2.40;Fritz (3);1.56;Jodar`;
+const EXAMPLE_TEXT = `27.07 14:10;1R;Griekspoor;1.60;Tabilo;2.30;Tabilo
+27.07 15:30;1R;Arnaldi;2.34;Musetti (4);1.59;Musetti (4)
+28.07 19:10;1R;Svajda;4.13;Mensik (7);1.22;Mensik (7)
+31.07 16:10;QF;De Minaur (1);1.56;Nakashima;2.40;Nakashima
+03.08 15:40;F;Jodar;2.40;Fritz (3);1.56;Jodar`;
 
 document.getElementById('compileGeralBtn').addEventListener('click', ()=>{
   compileGeral(document.getElementById('compileScope').value);
@@ -719,9 +764,9 @@ function toggleMartingaleFields(){
   const on = document.getElementById('useMartingale').checked;
   document.getElementById('numLinesField').style.display = on ? '' : 'none';
   document.getElementById('profitModeField').style.display = on ? '' : 'none';
-  document.getElementById('riskMitigationField').style.display = on ? '' : 'none';
-  document.getElementById('stopLossField').style.display = on ? '' : 'none';
-  document.getElementById('carryLossField').style.display = on ? '' : 'none';
+  document.getElementById('riskMitigation').disabled = !on;
+  document.getElementById('stopLossEnabled').disabled = !on;
+  document.getElementById('carryLossEnabled').disabled = !on;
   toggleProfitModeFields();
   toggleRiskFields();
   toggleStopLossFields();
@@ -807,6 +852,29 @@ document.getElementById('deleteTournamentBtn').addEventListener('click', ()=>{
   populateSelect();
   saveSettings();
   render();
+});
+
+document.getElementById('deleteAllBtn').addEventListener('click', ()=>{
+  const names = Object.keys(tournaments);
+  if(names.length === 0){ alert('Não há torneios salvos.'); return; }
+  const step1 = confirm(
+    'Isso vai apagar TODOS os '+names.length+' torneios salvos neste navegador ('
+    + names.join(', ') + '). Essa ação não pode ser desfeita. Deseja continuar?'
+  );
+  if(!step1) return;
+  const step2 = prompt('Pra confirmar de verdade, digite APAGAR (tudo em maiúsculas):');
+  if(step2 !== 'APAGAR'){
+    alert('Cancelado — nada foi apagado.');
+    return;
+  }
+  tournaments = {};
+  saveTournaments();
+  loadTournaments();
+  currentTournament = Object.keys(tournaments)[0];
+  populateSelect();
+  saveSettings();
+  render();
+  alert('Todos os torneios foram apagados. Um torneio de exemplo padrão foi recriado — você pode excluí-lo também assim que importar o primeiro torneio de verdade.');
 });
 
 document.getElementById('loadExampleBtn').addEventListener('click', ()=>{
