@@ -243,34 +243,46 @@
 </div>
 
 <details class="import-card">
-  <summary>☁️ Sincronizar entre dispositivos (via GitHub)</summary>
+  <summary>☁️ Sincronização na nuvem (Firebase)</summary>
   <p class="hint">
-    Usa um <strong>Gist privado</strong> do GitHub (um arquivo de texto na nuvem) pra guardar seus dados.
-    Passo único: vá em <strong>github.com/settings/tokens</strong> → "Generate new token" →
-    "Generate new token (classic)" → marque só a permissão <strong>gist</strong> → gere e copie o token.
-    Cole abaixo, clique em "Criar Gist" uma vez (só no primeiro dispositivo), e nos outros dispositivos
-    cole o mesmo token + o ID do Gist gerado, e clique em "Baixar".
+    Usa um projeto <strong>Firebase Firestore</strong> (grátis) pra guardar seus dados. Crie um projeto em
+    <strong>console.firebase.google.com</strong> → ative o <strong>Firestore Database</strong> (modo produção) →
+    nas configurações do projeto, crie um "App da Web" e copie os valores abaixo.<br><br>
+    Nas regras do Firestore, cole isto (permite acesso só a quem souber o código exato, sem listar todos os
+    códigos existentes):<br>
+    <code style="display:block;background:var(--line-bg);padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tenisgain_sync/{code} {
+      allow get, write: if true;
+      allow list: if false;
+    }
+  }
+}</code>
   </p>
   <div class="import-row">
-    <input type="password" id="ghToken" placeholder="Token do GitHub (escopo gist)" autocomplete="new-password" name="tenisgain-gh-token-nofill">
-    <button type="button" class="secondary" id="ghTokenToggle" style="padding:7px 12px;">👁 Mostrar</button>
+    <input type="text" id="cfgApiKey" placeholder="apiKey" autocomplete="off">
+    <input type="text" id="cfgAuthDomain" placeholder="authDomain" autocomplete="off">
   </div>
   <div class="import-row">
-    <input type="text" id="ghGistId" placeholder="ID do Gist (deixe em branco pra criar um novo)" autocomplete="off" name="tenisgain-gist-id-nofill">
+    <input type="text" id="cfgProjectId" placeholder="projectId" autocomplete="off">
+    <input type="text" id="cfgAppId" placeholder="appId" autocomplete="off">
+  </div>
+  <div class="import-row">
+    <input type="text" id="syncCode" placeholder="Código de sincronização (escolha algo único e difícil de adivinhar)" autocomplete="off">
   </div>
   <div class="import-row">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
-      <input type="checkbox" id="ghAutoSync"> Sincronizar automaticamente a cada alteração
+      <input type="checkbox" id="autoSyncEnabled"> Sincronizar automaticamente a cada alteração
     </label>
   </div>
-  <div class="error" id="ghError"></div>
+  <div class="error" id="cloudError"></div>
   <div class="import-row">
-    <button id="ghSaveConfigBtn">Salvar configuração</button>
-    <button class="secondary" id="ghCreateBtn">Criar Gist (1ª vez)</button>
-    <button class="secondary" id="ghPushBtn">Enviar ⬆</button>
-    <button class="secondary" id="ghPullBtn">Baixar ⬇</button>
+    <button id="saveCloudConfigBtn">Salvar configuração</button>
+    <button class="secondary" id="cloudPushBtn">Enviar para nuvem ⬆</button>
+    <button class="secondary" id="cloudPullBtn">Baixar da nuvem ⬇</button>
   </div>
-  <p class="hint" id="ghStatus">Nenhuma configuração salva ainda.</p>
+  <p class="hint" id="cloudStatus">Nenhuma configuração salva ainda.</p>
 </details>
 
 <details class="import-card">
@@ -398,12 +410,12 @@ function loadTournaments(){
   }
 }
 
-let suppressGhPush = false;
+let suppressCloudPush = false;
 
 function saveTournaments(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tournaments)); }
   catch(e){ /* localStorage indisponível, segue só em memória */ }
-  if(!suppressGhPush) scheduleGhPush();
+  if(!suppressCloudPush) scheduleCloudPush();
 }
 
 function parseDateKey(dateStr, year){
@@ -722,7 +734,7 @@ function saveSettings(){
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }catch(e){ /* localStorage indisponível, segue só em memória */ }
-  if(!suppressGhPush) scheduleGhPush();
+  if(!suppressCloudPush) scheduleCloudPush();
 }
 
 function loadSettings(){
@@ -919,186 +931,116 @@ document.getElementById('importBtn').addEventListener('click', ()=>{
   }
 });
 
-const GH_CONFIG_KEY = 'tenisgain_gh_config_v1';
-let ghPushTimer = null;
+const CLOUD_CONFIG_KEY = 'tenisgain_cloud_config_v1';
+let cloudPushTimer = null;
 
-function getGhConfig(){
+function getCloudConfig(){
   try{
-    const stored = localStorage.getItem(GH_CONFIG_KEY);
+    const stored = localStorage.getItem(CLOUD_CONFIG_KEY);
     return stored ? JSON.parse(stored) : null;
   }catch(e){ return null; }
 }
 
-function setGhStatus(text){
-  const el = document.getElementById('ghStatus');
+function setCloudStatus(text){
+  const el = document.getElementById('cloudStatus');
   if(el) el.textContent = text;
 }
 
-function fillGhForm(cfg){
+function fillCloudForm(cfg){
   if(!cfg) return;
-  document.getElementById('ghToken').value = cfg.token || '';
-  document.getElementById('ghGistId').value = cfg.gistId || '';
-  document.getElementById('ghAutoSync').checked = !!cfg.autoSync;
-}
-
-function readGhForm(){
-  return {
-    token: document.getElementById('ghToken').value.trim(),
-    gistId: document.getElementById('ghGistId').value.trim(),
-    autoSync: document.getElementById('ghAutoSync').checked
-  };
-}
-
-document.getElementById('ghTokenToggle').addEventListener('click', ()=>{
-  const field = document.getElementById('ghToken');
-  const btn = document.getElementById('ghTokenToggle');
-  if(field.type === 'password'){
-    field.type = 'text';
-    btn.textContent = '🙈 Ocultar';
-  } else {
-    field.type = 'password';
-    btn.textContent = '👁 Mostrar';
+  if(cfg.firebaseConfig){
+    document.getElementById('cfgApiKey').value = cfg.firebaseConfig.apiKey || '';
+    document.getElementById('cfgAuthDomain').value = cfg.firebaseConfig.authDomain || '';
+    document.getElementById('cfgProjectId').value = cfg.firebaseConfig.projectId || '';
+    document.getElementById('cfgAppId').value = cfg.firebaseConfig.appId || '';
   }
-});
+  document.getElementById('syncCode').value = cfg.syncCode || '';
+  document.getElementById('autoSyncEnabled').checked = !!cfg.autoSync;
+}
 
-document.getElementById('ghSaveConfigBtn').addEventListener('click', ()=>{
-  const errEl = document.getElementById('ghError');
+document.getElementById('saveCloudConfigBtn').addEventListener('click', ()=>{
+  const errEl = document.getElementById('cloudError');
   errEl.style.display = 'none';
-  const cfg = readGhForm();
-  if(!cfg.token){
-    errEl.textContent = 'Cole o token do GitHub primeiro.';
+  const apiKey = document.getElementById('cfgApiKey').value.trim();
+  const authDomain = document.getElementById('cfgAuthDomain').value.trim();
+  const projectId = document.getElementById('cfgProjectId').value.trim();
+  const appId = document.getElementById('cfgAppId').value.trim();
+  const syncCode = document.getElementById('syncCode').value.trim();
+  const autoSync = document.getElementById('autoSyncEnabled').checked;
+  if(!apiKey || !projectId || !appId || !syncCode){
+    errEl.textContent = 'Preencha ao menos apiKey, projectId, appId e o código de sincronização.';
     errEl.style.display = 'block';
     return;
   }
-  localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
-  setGhStatus('Configuração salva.' + (cfg.gistId ? ' Use "Enviar" ou "Baixar".' : ' Clique em "Criar Gist" pra começar.'));
+  const cfg = {
+    firebaseConfig: { apiKey, authDomain, projectId, appId },
+    syncCode, autoSync
+  };
+  localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(cfg));
+  setCloudStatus('Configuração salva. Use "Enviar para nuvem" ou "Baixar da nuvem" pra começar.');
 });
 
-function buildPayload(){
-  let settings = {};
-  try{ settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }catch(e){}
-  return { tournaments, settings, updatedAt: Date.now() };
-}
+document.getElementById('cloudPushBtn').addEventListener('click', ()=> cloudPush(true));
+document.getElementById('cloudPullBtn').addEventListener('click', ()=> cloudPull(true));
 
-async function ghRequest(url, options){
-  const res = await fetch(url, options);
-  if(!res.ok){
-    const body = await res.text().catch(()=> '');
-    throw new Error('GitHub respondeu ' + res.status + (body ? ': ' + body.slice(0,200) : ''));
-  }
-  return res.json();
-}
-
-document.getElementById('ghCreateBtn').addEventListener('click', async ()=>{
-  const cfg = readGhForm();
-  if(!cfg.token){ setGhStatus('Cole o token do GitHub primeiro.'); return; }
-  setGhStatus('Criando Gist...');
+async function cloudPush(manual){
+  const cfg = getCloudConfig();
+  if(!cfg){ if(manual) setCloudStatus('Configure e salve os dados da nuvem primeiro.'); return; }
   try{
-    const payload = buildPayload();
-    const data = await ghRequest('https://api.github.com/gists', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'token ' + cfg.token,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        description: 'TenisGain sync data',
-        public: false,
-        files: { 'tenisgain-sync.json': { content: JSON.stringify(payload, null, 2) } }
-      })
-    });
-    cfg.gistId = data.id;
-    localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
-    document.getElementById('ghGistId').value = data.id;
-    setGhStatus('Gist criado! ID: ' + data.id + ' — copie esse ID e o token pros outros dispositivos.');
+    let settings = {};
+    try{ settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }catch(e){}
+    const payload = { tournaments, settings, updatedAt: Date.now() };
+    await window.TenisGainCloud.push(cfg.firebaseConfig, cfg.syncCode, payload);
+    setCloudStatus('Enviado para a nuvem às ' + new Date().toLocaleTimeString('pt-BR') + '.');
   }catch(e){
-    setGhStatus('Erro ao criar Gist: ' + e.message);
-  }
-});
-
-document.getElementById('ghPushBtn').addEventListener('click', ()=> ghPush(true));
-document.getElementById('ghPullBtn').addEventListener('click', ()=> ghPull(true));
-
-async function ghPush(manual){
-  const cfg = getGhConfig();
-  if(!cfg || !cfg.token || !cfg.gistId){
-    if(manual) setGhStatus('Configure o token e o ID do Gist primeiro (ou crie um novo).');
-    return;
-  }
-  try{
-    const payload = buildPayload();
-    await ghRequest('https://api.github.com/gists/' + cfg.gistId, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': 'token ' + cfg.token,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        files: { 'tenisgain-sync.json': { content: JSON.stringify(payload, null, 2) } }
-      })
-    });
-    setGhStatus('Enviado às ' + new Date().toLocaleTimeString('pt-BR') + '.');
-  }catch(e){
-    setGhStatus('Erro ao enviar: ' + e.message);
+    setCloudStatus('Erro ao enviar para a nuvem: ' + e.message);
   }
 }
 
-async function ghPull(manual){
-  const cfg = getGhConfig();
-  if(!cfg || !cfg.token || !cfg.gistId){
-    if(manual) setGhStatus('Configure o token e o ID do Gist primeiro.');
-    return;
-  }
+async function cloudPull(manual){
+  const cfg = getCloudConfig();
+  if(!cfg){ if(manual) setCloudStatus('Configure e salve os dados da nuvem primeiro.'); return; }
   try{
-    const data = await ghRequest('https://api.github.com/gists/' + cfg.gistId, {
-      headers: {
-        'Authorization': 'token ' + cfg.token,
-        'Accept': 'application/vnd.github+json'
-      }
-    });
-    const file = data.files && data.files['tenisgain-sync.json'];
-    if(!file){
-      setGhStatus('Esse Gist não tem dados do simulador ainda. Use "Enviar" primeiro.');
+    const data = await window.TenisGainCloud.pull(cfg.firebaseConfig, cfg.syncCode);
+    if(!data){
+      setCloudStatus('Nenhum dado encontrado na nuvem para esse código ainda. Use "Enviar para nuvem" primeiro.');
       return;
     }
-    const parsed = JSON.parse(file.content);
     const normalized = {};
-    Object.keys(parsed.tournaments || {}).forEach(name=>{
-      normalized[name] = normalizeTournament(parsed.tournaments[name]);
+    Object.keys(data.tournaments || {}).forEach(name=>{
+      normalized[name] = normalizeTournament(data.tournaments[name]);
     });
     tournaments = normalized;
-    suppressGhPush = true;
+    suppressCloudPush = true;
     saveTournaments();
-    if(parsed.settings){
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed.settings));
+    if(data.settings){
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
     }
-    suppressGhPush = false;
+    suppressCloudPush = false;
     loadSettings();
     populateSelect();
     toggleMartingaleFields();
     render();
-    setGhStatus('Dados baixados (atualizados em ' + (parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleString('pt-BR') : '—') + ').');
+    setCloudStatus('Dados baixados da nuvem (atualizados em ' + (data.updatedAt ? new Date(data.updatedAt).toLocaleString('pt-BR') : '—') + ').');
   }catch(e){
-    setGhStatus('Erro ao baixar: ' + e.message);
+    setCloudStatus('Erro ao baixar da nuvem: ' + e.message);
   }
 }
 
-function scheduleGhPush(){
-  const cfg = getGhConfig();
-  if(!cfg || !cfg.autoSync || !cfg.gistId) return;
-  clearTimeout(ghPushTimer);
-  ghPushTimer = setTimeout(()=> ghPush(false), 1500);
+function scheduleCloudPush(){
+  const cfg = getCloudConfig();
+  if(!cfg || !cfg.autoSync) return;
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(()=> cloudPush(false), 1500);
 }
 
-const _ghCfgOnLoad = getGhConfig();
-if(_ghCfgOnLoad){
-  fillGhForm(_ghCfgOnLoad);
-  setGhStatus('Configuração carregada.');
-  if(_ghCfgOnLoad.autoSync && _ghCfgOnLoad.gistId){
-    setGhStatus('Sincronizando automaticamente...');
-    ghPull(false);
+const _cloudCfgOnLoad = getCloudConfig();
+if(_cloudCfgOnLoad){
+  fillCloudForm(_cloudCfgOnLoad);
+  setCloudStatus('Configuração carregada.');
+  if(_cloudCfgOnLoad.autoSync){
+    setCloudStatus('Sincronizando automaticamente...');
+    cloudPull(false);
   }
 }
 
@@ -1108,6 +1050,30 @@ loadSettings();
 populateSelect();
 toggleMartingaleFields();
 render();
+</script>
+<script type="module">
+window.TenisGainCloud = (function(){
+  let app = null, db = null, fs = null;
+  async function ensure(config){
+    if(app) return;
+    const appMod = await import('https://cdn.jsdelivr.net/npm/firebase@10.13.2/app/+esm');
+    fs = await import('https://cdn.jsdelivr.net/npm/firebase@10.13.2/firestore/+esm');
+    app = appMod.initializeApp(config);
+    db = fs.getFirestore(app);
+  }
+  async function push(config, code, data){
+    await ensure(config);
+    const ref = fs.doc(db, 'tenisgain_sync', code);
+    await fs.setDoc(ref, data);
+  }
+  async function pull(config, code){
+    await ensure(config);
+    const ref = fs.doc(db, 'tenisgain_sync', code);
+    const snap = await fs.getDoc(ref);
+    return snap.exists() ? snap.data() : null;
+  }
+  return { push, pull };
+})();
 </script>
 </body>
 </html>
